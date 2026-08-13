@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MétréPro — Métré, Chiffrage & Structure BA</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="logo"><span class="dot"></span>Métré<b>Pro</b></div>
+    <div class="sep"></div>
+    <div class="toolbar">
+      <button class="tbtn" id="btnImport">📂 Importer</button>
+      <button class="tbtn" id="btnAuto" style="background:var(--accent2);color:#08210f;border-color:var(--accent2);font-weight:600">🤖 Analyser le plan</button>
+      <div class="sep"></div>
+      <button class="tbtn" data-tool="calib" title="Échelle">📏 Échelle</button>
+      <button class="tbtn" data-tool="length" title="Longueur">📐 Longueur</button>
+      <button class="tbtn" data-tool="area" title="Surface">⬛ Surface</button>
+      <button class="tbtn" data-tool="count" title="Comptage">🔢 Comptage</button>
+      <button class="tbtn" data-tool="select" title="Naviguer">✋ Naviguer</button>
+      <button class="tbtn ghost" id="btnUndo">↶ Annuler</button>
+    </div>
+    <div class="spacer"></div>
+    <span class="tbtn ghost" style="cursor:default">DWG* · DXF · PDF · BMP/JPG</span>
+  </header>
+
+  <div class="stepbar">
+    <span class="steplabel">Étape :</span>
+    <button class="phbtn on" data-phase="fondation">1 · Fondations</button>
+    <button class="phbtn" data-phase="elevation">2 · Élévation</button>
+    <button class="phbtn" data-phase="second">3 · Second œuvre</button>
+    <div class="sep"></div>
+    <div class="chips" id="typeChips"></div>
+    <div class="spacer"></div>
+    <label class="switch"><input type="checkbox" id="quickToggle"> ⚡ Placement rapide</label>
+    <button class="tbtn" id="btnDefaults">⚙️ Paramètres par défaut</button>
+  </div>
+
+  <div class="stage" id="stage">
+    <canvas id="plan"></canvas><canvas id="overlay"></canvas>
+    <div class="empty" id="emptyState">
+      <h2>Métré & chiffrage — bâtiment & structure béton armé</h2>
+      <p style="max-width:440px">Travaillez <b style="color:var(--ink)">étape par étape</b> (fondations → élévation → second œuvre).
+      Définissez les paramètres d'un type une fois (⚙️), activez le <b style="color:var(--ink)">placement rapide</b> (⚡) et posez les éléments en un clic.
+      Chaque ligne du tableau reste <b style="color:var(--ink)">modifiable</b> (✎).</p>
+      <button class="bigbtn" id="btnDemo" style="background:var(--accent2)">▶️ Essayer avec un plan d'exemple</button>
+      <div style="color:var(--muted);font-size:12px">— ou —</div>
+      <button class="bigbtn" id="btnImport2">📂 Importer un plan (DXF · PDF · BMP/JPG)</button>
+      <p style="max-width:440px;font-size:12px;margin-top:2px">DWG : à convertir en DXF/PDF. Glisser-déposer possible ici.</p>
+    </div>
+    <div class="hint" id="hint" style="display:none"></div>
+    <div class="zoombar" id="zoombar" style="display:none"><button id="zOut">−</button><button id="zFit">⤢</button><button id="zIn">+</button></div>
+    <div class="scaleTag" id="scaleTag" style="display:none"></div>
+  </div>
+
+  <aside>
+    <div class="panelHead"><h3>Bibliothèque d'ouvrages</h3><span class="badge" id="libCount">0</span></div>
+    <div class="libScroll"><div id="libList"></div><button class="addbtn" id="btnAddLib">＋ Ajouter un ouvrage</button></div>
+    <div class="foot">
+      <div class="totrow"><span>Devise</span><span><select id="curSel" style="width:auto;padding:3px 6px">
+        <option value="EUR|€|after">Euro (€)</option><option value="USD|$|before">Dollar US ($)</option>
+        <option value="GBP|£|before">Livre (£)</option><option value="XOF|FCFA|after">Franc CFA Ouest (FCFA)</option>
+        <option value="XAF|FCFA|after">Franc CFA Central (FCFA)</option><option value="NGN|₦|before">Naira (₦)</option>
+        <option value="MAD|DH|after">Dirham (DH)</option><option value="DZD|DA|after">Dinar algérien (DA)</option>
+        <option value="TND|DT|after">Dinar tunisien (DT)</option><option value="CHF|CHF|after">Franc suisse (CHF)</option>
+        <option value="CAD|$ CA|before">Dollar canadien ($)</option></select></span></div>
+      <div class="totrow"><span>Sous-total HT</span><span id="subtotal">0,00 €</span></div>
+      <div class="totrow"><span>TVA <select id="tvaSel" style="width:auto;padding:2px 4px">
+        <option value="0.20">20 %</option><option value="0.18">18 %</option><option value="0.10" selected>10 %</option>
+        <option value="0.055">5,5 %</option><option value="0">0 %</option></select></span><span id="tvaAmt">0,00 €</span></div>
+      <div class="totrow grand"><span>Total TTC</span><span id="grandtotal">0,00 €</span></div>
+      <div class="exp"><button id="btnCSV">⬇ CSV</button><button id="btnPrint" class="primary">🖨 Devis PDF</button></div>
+    </div>
+  </aside>
+
+  <div class="dock" id="dock">
+    <div class="dockHead"><h3>Tableau de métré</h3>
+      <button id="viewOuvrages" class="viewbtn on">📋 Devis (ouvrages)</button>
+      <button id="viewMateriaux" class="viewbtn">🧱 Quantitatif matériaux</button>
+      <span class="badge" id="rowCount">0 ligne</span><button id="dockToggle">Réduire ▾</button></div>
+    <div class="tableWrap" id="tableWrap"></div>
+  </div>
+</div>
+
+<!-- Scale modal -->
+<div class="modal" id="scaleModal"><div class="card" style="width:340px">
+  <h3>📏 Définir l'échelle</h3><p class="sub">Indiquez la longueur réelle de la distance tracée.</p>
+  <div class="row-inline" style="margin-bottom:14px">
+    <div class="fld" style="flex:1"><label>Longueur réelle</label><input type="number" id="realLen" value="4" step="0.01" min="0.01"></div>
+    <div class="fld" style="max-width:90px"><label>Unité</label><select id="realUnit"><option value="1">mètres</option><option value="0.01">cm</option></select></div>
+  </div>
+  <div class="actions"><button id="scaleCancel">Annuler</button><button class="ok" id="scaleOk" style="background:var(--accent);border-color:var(--accent)">Valider</button></div>
+</div></div>
+
+<!-- Structure modal -->
+<div class="modal" id="structModal"><div class="card">
+  <h3 id="structTitle">🏗️ Élément structure</h3>
+  <p class="sub">Renseignez les dimensions et les armatures. Le béton (m³) et l'acier (kg) sont calculés automatiquement.</p>
+  <div class="fld" style="margin-bottom:12px"><label>Type d'élément</label>
+    <select id="stType"></select></div>
+  <div class="grid3">
+    <div class="fld"><label id="lblL">Longueur (m)</label><input type="number" id="stL" step="0.01"></div>
+    <div class="fld"><label id="lbll">Largeur (m)</label><input type="number" id="stl" step="0.01"></div>
+    <div class="fld"><label id="lblH">Épaisseur (m)</label><input type="number" id="stH" step="0.01"></div>
+  </div>
+  <div class="fld" style="margin-bottom:12px"><label id="lblNb">Nombre d'éléments identiques</label><input type="number" id="stNb" step="1" value="1" min="1"></div>
+  <div class="section-t">⛓️ Armatures principales</div>
+  <div class="grid3">
+    <div class="fld"><label>Nombre de barres</label><input type="number" id="stBarN" step="1" min="0"></div>
+    <div class="fld"><label>Diamètre</label><select id="stBarDia"></select></div>
+    <div class="fld"><label>Long. barre (m)</label><input type="number" id="stBarLen" step="0.01"></div>
+  </div>
+  <div class="section-t">🔗 Cadres / étriers (0 = aucun)</div>
+  <div class="grid2">
+    <div class="fld"><label>Diamètre cadre</label><select id="stStirDia"></select></div>
+    <div class="fld"><label>Espacement (m)</label><input type="number" id="stStirSp" step="0.01"></div>
+  </div>
+  <div class="preview"><div><span class="b1">Béton</span><b class="b1" id="pvBeton">0 m³</b></div><div><span class="b2">Acier</span><b class="b2" id="pvAcier">0 kg</b></div></div>
+  <label class="chkline" id="saveDefWrap"><input type="checkbox" id="stSaveDef"> Enregistrer aussi comme paramètres par défaut pour ce type</label>
+  <div class="actions"><button id="structCancel">Annuler</button><button class="ok" id="structOk">Ajouter</button></div>
+</div></div>
+
+<!-- Std edit modal -->
+<div class="modal" id="stdModal"><div class="card" style="width:360px">
+  <h3>✎ Modifier la mesure</h3>
+  <div class="fld" style="margin-bottom:10px"><label>Ouvrage</label><select id="edOuvrage"></select></div>
+  <div class="fld" id="edHeightWrap" style="margin-bottom:10px"><label>Hauteur / épaisseur (m)</label><input type="number" id="edHeight" step="0.01"></div>
+  <div class="fld" style="margin-bottom:14px"><label>Quantité manuelle (vide = calcul auto depuis le plan)</label><input type="number" id="edQty" step="0.01" placeholder="auto"></div>
+  <div class="actions"><button id="stdCancel">Annuler</button><button class="ok" id="stdOk" style="background:var(--accent);border-color:var(--accent)">Enregistrer</button></div>
+</div></div>
+
+<!-- Auto-analyse modal -->
+<div class="modal" id="autoModal"><div class="card">
+  <h3>🤖 Analyse automatique du plan</h3>
+  <p class="sub" id="autoSummary"></p>
+  <div class="fld" style="margin-bottom:10px"><label>Surfaces détectées → ouvrage (unité m²)</label><select id="autoSurf"></select></div>
+  <div class="fld" style="margin-bottom:10px"><label>Longueurs / murs détectés → ouvrage (unité ml)</label><select id="autoLen"></select></div>
+  <label class="chkline"><input type="checkbox" id="autoPerim"> Ajouter aussi le périmètre des surfaces (plinthes, chaînages…)</label>
+  <div class="fld" id="autoPerimWrap" style="margin-bottom:12px;display:none"><label>Périmètres → ouvrage (ml)</label><select id="autoPerimSel"></select></div>
+  <div class="preview"><div><span class="b1">Surfaces</span><b class="b1" id="pvSurf">0 m²</b></div><div><span class="b2">Longueurs</span><b class="b2" id="pvLen">0 m</b></div></div>
+  <div class="actions"><button id="autoCancel">Annuler</button><button class="ok" id="autoOk" style="background:var(--accent2);border-color:var(--accent2);color:#08210f">Générer le devis</button></div>
+</div></div>
+
+<input type="file" id="fileInput" accept="image/*,application/pdf,.dxf,.dwg,.dgn,.ifc,.rvt,.rfa,.bmp,.jpg,.jpeg" style="display:none">
+<div id="printArea" style="display:none"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
