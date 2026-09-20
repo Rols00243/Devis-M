@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#0f1622">
+<meta name="description" content="Scannez une carte de visite, les coordonnées sont extraites et enregistrées automatiquement dans votre répertoire.">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="CartePro">
+<title>CartePro — Scanner de cartes de visite</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon.svg">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- ================= En-tête ================= -->
+<header class="appbar">
+  <div class="brand"><span class="dot"></span>Carte<b>Pro</b></div>
+  <div class="grow"></div>
+  <button class="iconbtn" id="btnHelp" title="Aide" aria-label="Aide">?</button>
+</header>
+
+<main id="main">
+
+  <!-- ================= Écran SCAN ================= -->
+  <section class="screen on" id="scScan">
+
+    <div class="hero" id="heroScan">
+      <div class="heroIcon">🪪</div>
+      <h1>Scanner une carte</h1>
+      <p>Photographiez la carte de visite : le texte est lu automatiquement et la fiche est
+         enregistrée dans votre répertoire.</p>
+      <div class="heroBtns">
+        <button class="bigbtn" id="btnCam">📷 Prendre une photo</button>
+        <button class="bigbtn ghost" id="btnGal">🖼️ Choisir une image</button>
+        <button class="bigbtn ghost" id="btnManual">✍️ Saisir à la main</button>
+      </div>
+      <p class="tip" id="tipOffline"></p>
+    </div>
+
+    <!-- Caméra live (si getUserMedia disponible) -->
+    <div class="camWrap" id="camWrap" hidden>
+      <video id="video" playsinline muted autoplay></video>
+      <div class="camGuide"><span>Cadrez la carte dans le rectangle</span></div>
+      <div class="camBar">
+        <button class="cbtn" id="btnCamClose">✕</button>
+        <button class="shutter" id="btnShot" aria-label="Capturer"></button>
+        <button class="cbtn" id="btnCamSwap">⟳</button>
+      </div>
+    </div>
+
+    <!-- Aperçu + progression OCR -->
+    <div class="work" id="work" hidden>
+      <div class="shot"><img id="shotImg" alt="Carte scannée"></div>
+      <div class="prog" id="prog">
+        <div class="bar"><i id="progBar"></i></div>
+        <div class="progTxt" id="progTxt">Préparation…</div>
+      </div>
+      <div class="workBtns">
+        <button class="tbtn" id="btnRotate">⟲ Pivoter</button>
+        <button class="tbtn" id="btnRetry">🔁 Relancer la lecture</button>
+        <button class="tbtn" id="btnCancelScan">✕ Annuler</button>
+      </div>
+    </div>
+
+    <!-- Formulaire fiche -->
+    <div class="card form" id="formWrap" hidden>
+      <div class="savedFlag" id="savedFlag">✔ Enregistré dans le répertoire</div>
+      <div class="formShot" id="formShot" hidden><img id="formShotImg" alt="Carte scannée"></div>
+
+      <div class="fgrid">
+        <label class="f"><span>Prénom</span><input id="fPrenom" autocomplete="off"></label>
+        <label class="f"><span>Nom</span><input id="fNom" autocomplete="off"></label>
+      </div>
+      <label class="f"><span>Société</span><input id="fSociete"></label>
+      <label class="f"><span>Fonction</span><input id="fFonction"></label>
+
+      <div class="fsec">Téléphones <button class="addbtn" data-add="tel">+ Ajouter</button></div>
+      <div id="listTel" class="multi"></div>
+
+      <div class="fsec">E-mails <button class="addbtn" data-add="email">+ Ajouter</button></div>
+      <div id="listEmail" class="multi"></div>
+
+      <div class="fsec">Sites web <button class="addbtn" data-add="site">+ Ajouter</button></div>
+      <div id="listSite" class="multi"></div>
+
+      <div class="fsec">Adresse</div>
+      <label class="f"><span>Rue</span><input id="fRue"></label>
+      <div class="fgrid">
+        <label class="f"><span>Code postal</span><input id="fCp" inputmode="numeric"></label>
+        <label class="f"><span>Ville</span><input id="fVille"></label>
+      </div>
+      <label class="f"><span>Pays</span><input id="fPays"></label>
+
+      <label class="f"><span>Notes</span><textarea id="fNotes" rows="2"></textarea></label>
+      <label class="f"><span>Étiquettes (séparées par des virgules)</span><input id="fTags" placeholder="client, chantier Lyon"></label>
+
+      <details class="raw"><summary>Texte lu sur la carte (OCR)</summary><pre id="fRaw"></pre></details>
+
+      <div class="formBtns">
+        <button class="bigbtn" id="btnSaveForm">💾 Enregistrer</button>
+        <button class="bigbtn ghost" id="btnPhone">📇 Ajouter au téléphone</button>
+        <button class="bigbtn ghost" id="btnNext">📷 Scanner une autre carte</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= Écran RÉPERTOIRE ================= -->
+  <section class="screen" id="scRep">
+    <div class="searchbar">
+      <input id="q" placeholder="Rechercher un nom, une société, un téléphone…" autocomplete="off">
+      <button class="iconbtn" id="btnClearQ" hidden>✕</button>
+    </div>
+    <div class="repbar">
+      <span class="count" id="repCount">0 contact</span>
+      <div class="grow"></div>
+      <select id="sortSel" class="mini">
+        <option value="recent">Plus récents</option>
+        <option value="nom">Nom A→Z</option>
+        <option value="societe">Société A→Z</option>
+      </select>
+      <button class="mini" id="btnExport">⬇ Exporter</button>
+    </div>
+    <div id="repList" class="list"></div>
+    <div class="emptyRep" id="emptyRep">
+      <div class="heroIcon">📇</div>
+      <p>Aucun contact pour l'instant.<br>Scannez votre première carte de visite.</p>
+      <button class="bigbtn" id="btnGoScan">📷 Scanner</button>
+    </div>
+  </section>
+
+  <!-- ================= Écran RÉGLAGES ================= -->
+  <section class="screen" id="scSet">
+    <div class="card">
+      <h2>Réglages</h2>
+
+      <label class="f"><span>Langues de lecture (OCR)</span>
+        <select id="setLang">
+          <option value="fra+eng">Français + Anglais</option>
+          <option value="fra">Français</option>
+          <option value="eng">Anglais</option>
+          <option value="fra+eng+spa">Français + Anglais + Espagnol</option>
+        </select>
+      </label>
+
+      <label class="f"><span>Indicatif pays par défaut</span>
+        <input id="setCc" placeholder="+33" inputmode="tel">
+      </label>
+      <p class="hint">Utilisé pour normaliser les numéros commençant par 0 (ex. 06 12 34 56 78 → +33 6 12 34 56 78).</p>
+
+      <label class="sw"><input type="checkbox" id="setAuto"><span>Enregistrer automatiquement la fiche après le scan</span></label>
+      <label class="sw"><input type="checkbox" id="setPhone"><span>Proposer l'ajout au carnet d'adresses du téléphone après l'enregistrement</span></label>
+      <label class="sw"><input type="checkbox" id="setPhoto"><span>Conserver la photo de la carte</span></label>
+
+      <div class="fsec">Données</div>
+      <div class="setBtns">
+        <button class="tbtn" id="btnExport2">⬇ Exporter le répertoire (vCard)</button>
+        <button class="tbtn" id="btnExportCsv">⬇ Exporter en CSV</button>
+        <button class="tbtn" id="btnImportVcf">⬆ Importer un fichier .vcf</button>
+        <button class="tbtn danger" id="btnWipe">🗑 Vider le répertoire</button>
+      </div>
+      <p class="hint" id="usage"></p>
+
+      <div class="fsec">À propos</div>
+      <p class="hint">CartePro v1.0 — application 100 % locale : vos contacts restent sur votre
+      téléphone (IndexedDB). Lecture du texte par Tesseract.js, aucun envoi de la photo sur un serveur.</p>
+    </div>
+  </section>
+</main>
+
+<!-- ================= Fiche contact (plein écran) ================= -->
+<div class="sheet" id="sheet" hidden>
+  <div class="sheetHead">
+    <button class="iconbtn" id="btnSheetClose">‹</button>
+    <strong id="sheetTitle">Fiche</strong>
+    <div class="grow"></div>
+    <button class="iconbtn" id="btnSheetEdit" title="Modifier">✎</button>
+    <button class="iconbtn danger" id="btnSheetDel" title="Supprimer">🗑</button>
+  </div>
+  <div class="sheetBody" id="sheetBody"></div>
+</div>
+
+<!-- ================= Navigation ================= -->
+<nav class="tabs">
+  <button class="tab on" data-screen="scScan">📷<span>Scanner</span></button>
+  <button class="tab" data-screen="scRep">📇<span>Répertoire</span></button>
+  <button class="tab" data-screen="scSet">⚙️<span>Réglages</span></button>
+</nav>
+
+<input type="file" id="fileCam" accept="image/*" capture="environment" hidden>
+<input type="file" id="fileGal" accept="image/*" hidden>
+<input type="file" id="fileVcf" accept=".vcf,text/vcard" hidden>
+<div id="toast" class="toast" hidden></div>
+
+<script src="app.js"></script>
+</body>
+</html>

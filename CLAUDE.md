@@ -24,10 +24,18 @@ Version actuelle : v0.5.
 ## Architecture des fichiers
 
 ```
-src/
+src/                     MétréPro (logiciel de métré, application de bureau/navigateur)
   index.html   Structure (barre d'outils, étapes, panneaux, modales) + inclut styles.css et app.js
   styles.css   Tout le style (thème sombre, grille de l'app, tableau, modales)
   app.js       Toute la logique (~1200 lignes, vanilla JS, aucune dépendance sauf pdf.js via CDN)
+
+cartes/                  CartePro (application mobile PWA de scan de cartes de visite)
+  index.html   Écrans scan / répertoire / réglages / fiche + navigation par onglets
+  styles.css   Thème sombre mobile (mêmes variables CSS que MétréPro)
+  app.js       Logique en 8 sections numérotées (capture, pré-traitement, OCR, analyse,
+               formulaire, répertoire, vCard, réglages) — vanilla JS, Tesseract.js via CDN
+  sw.js        Service worker (hors-ligne + mise en cache du moteur OCR)
+  tests/       Suites Playwright (npm run test:cartes)
 ```
 
 `app.js` charge **pdf.js** depuis cdnjs (lecture des PDF). Aucune autre dépendance externe.
@@ -62,9 +70,37 @@ src/
 - Éviter `localStorage`/`sessionStorage` dans l'environnement d'artifact ; pour la vraie
   app (hors navigateur restreint), la persistance passera par un backend ou IndexedDB.
 
+## Module CartePro (`cartes/`)
+
+Application **mobile** distincte, 100 % client : photo d'une carte de visite → pré-traitement
+canvas → OCR (Tesseract.js, `fra+eng`) → analyse du texte (`parseCard()`) → fiche enregistrée
+**automatiquement dans IndexedDB** (base `cartepro`, magasin `contacts`) → export vCard vers le
+carnet d'adresses du téléphone.
+
+Repères dans `cartes/app.js` :
+
+- **`parseCard(text)`** : cœur de l'extraction (nom / société / fonction / téléphones typés /
+  e-mails / sites / adresse). Fonctionne par score sur chaque ligne, avec des listes de
+  mots-clés (`FORMES`, `FONCTIONS`, `VOIES`, `BRUIT`) ; l'adresse e-mail sert à trancher
+  l'ordre prénom / nom.
+- **`normPhone()` / `prettyPhone()`** : normalisation internationale (indicatif par défaut
+  configurable) — attention, la longueur de l'indicatif est déduite via `ccLen()`.
+- **`preprocess()`** : redimensionnement (1600 px), rotation, niveaux de gris, étirement de
+  contraste (percentiles 5/95, neutralisé si l'image est déjà plate).
+- **`findDuplicate()` / `mergeInto()`** : anti-doublons (même e-mail, numéro ou nom complet).
+- **`vcard()` / `parseVcf()`** : export / import vCard 3.0.
+- `window.CartePro` expose les fonctions pour les tests Playwright.
+
+Contrainte web : **impossible d'écrire directement dans les contacts du téléphone** — le
+passage se fait par un fichier `.vcf` (partage natif `navigator.share` ou téléchargement).
+
+Le stockage passe par **IndexedDB** (les réglages, eux, utilisent `localStorage` avec
+try/catch). Le moteur OCR vient d'un CDN : prévoir toujours un repli en saisie manuelle.
+
 ## Tests
 
-Aucun framework installé. Les tests se font avec **Playwright** (Chromium) en chargeant
+Pour `cartes/` : `npm run test:cartes` (Playwright/Chromium, 61 vérifications, le moteur OCR
+est simulé pour tourner hors connexion). Pour `src/` : aucun framework installé. Les tests se font avec **Playwright** (Chromium) en chargeant
 `src/index.html` en `file://` et en vérifiant `pageerror` + comportements clés
 (analyse auto, calcul structure, changement de devise, édition de ligne). Exemple de
 vérification métier : un rectangle 5×4 m doit donner 20 m² ; 1 m³ de béton = 350 kg de

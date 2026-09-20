@@ -33,11 +33,27 @@ npm start          # sert le dossier sur http://localhost:3000
 
 Ou ouvrez simplement `src/index.html` dans un navigateur (Chrome, Firefox, Edge…).
 
+## Application mobile : CartePro (scanner de cartes de visite)
+
+Le dossier `cartes/` contient une **application mobile (PWA)** indépendante : on photographie
+une carte de visite, le texte est lu (OCR), les coordonnées sont extraites et la fiche est
+**enregistrée automatiquement dans le répertoire** (stockage local). Un bouton envoie ensuite
+le contact dans le carnet d'adresses du téléphone (vCard). Export `.vcf` / CSV, recherche,
+détection des doublons, utilisation hors connexion.
+
+```bash
+npm run start:cartes     # servir l'application
+npm run test:cartes      # tests Playwright
+```
+
+Détails : `cartes/README.md`.
+
 ## Structure
 
 - `src/index.html` — interface
 - `src/styles.css` — style
 - `src/app.js` — logique (vanilla JS, seule dépendance : pdf.js via CDN)
+- `cartes/` — CartePro, application mobile de scan de cartes de visite (PWA)
 - `CLAUDE.md` — contexte et feuille de route pour développer avec Claude Code
 
 ## Feuille de route
