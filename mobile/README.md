@@ -184,10 +184,10 @@ npm test     # 22 tests
 
 ## Évolutions prévues
 
-Le découpage en modules a été pensé pour ces ajouts : scan par lots, recto-verso
-intelligent, synchronisation Google Contacts et Outlook, classement automatique,
-recherche sémantique, traduction des cartes, reconnaissance des logos,
-statistiques, version web.
+Le découpage en modules a été pensé pour ces ajouts : reconnaissance par lots
+(plusieurs cartes sur une même photo), synchronisation Google Contacts et
+Outlook, classement automatique des contacts, recherche sémantique, traduction
+des cartes, reconnaissance des logos d'entreprise, statistiques, version web.
 
 ---
 
