@@ -35,7 +35,7 @@ jobs:
       - name: Installer Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
           cache-dependency-path: mobile/package-lock.json
 
@@ -45,8 +45,14 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Préparer le SDK Android
-        uses: android-actions/setup-android@v3
+      - name: Compléter le SDK Android
+        working-directory: .
+        run: |
+          set -euo pipefail
+          SDKMGR=$(ls "$ANDROID_HOME"/cmdline-tools/*/bin/sdkmanager | head -1)
+          echo "sdkmanager : $SDKMGR"
+          yes | "$SDKMGR" --licenses > /dev/null 2>&1 || true
+          "$SDKMGR" "platform-tools" "platforms;android-36" "build-tools;36.0.0"
 
       - name: Installer les dépendances
         run: npm ci
