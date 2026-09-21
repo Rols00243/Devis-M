@@ -18,6 +18,7 @@ OUVRIR  →  SCANNER  →  OCR + IA  →  VÉRIFIER  →  « ENREGISTRER »  →
 | Capture caméra, cadre de visée, capture automatique sur stabilité | ✅ |
 | Scanner natif (détection des bords + perspective redressée) | ✅ |
 | Import depuis la galerie | ✅ |
+| Recto-verso : le dos complète les champs restés vides | ✅ |
 | OCR hors ligne (Google ML Kit) | ✅ |
 | Extraction intelligente des 14 champs | ✅ |
 | Extraction IA cloud (Claude vision) en renfort, dont l'arabe | ✅ |

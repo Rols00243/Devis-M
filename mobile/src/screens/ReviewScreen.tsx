@@ -14,6 +14,10 @@ import { buildCard, getCard } from '../database/cardRepository';
 import { createContact, ensureContactsPermission, updateContact } from '../contacts/contactService';
 import { findDuplicates, reasonLabel } from '../contacts/duplicates';
 import type { RootStackParamList } from '../navigation/types';
+import { scanCard } from '../ocr';
+import { captureCardImage } from '../ocr/captureSource';
+import { prepareForArchive } from '../ocr/imagePipeline';
+import { persistImage } from '../storage/images';
 import { useCardsStore } from '../store/cardsStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { colors, radius, spacing, typography } from '../theme';
@@ -57,6 +61,8 @@ export default function ReviewScreen({ navigation, route }: Props) {
   const [duplicates, setDuplicates] = useState<DuplicateMatch[]>([]);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(Boolean(cardId));
+  const [backImageUri, setBackImageUri] = useState<string | null>(payload?.backImageUri ?? null);
+  const [scanningBack, setScanningBack] = useState(false);
 
   const confidence = useMemo(() => payload?.confidence ?? card?.confidence ?? {}, [payload, card]);
 
@@ -82,6 +88,7 @@ export default function ReviewScreen({ navigation, route }: Props) {
       if (existing) {
         setCard(existing);
         setFields(pickFields(existing));
+        setBackImageUri(existing.backImageUri);
       }
       setLoading(false);
     });
@@ -116,6 +123,51 @@ export default function ReviewScreen({ navigation, route }: Props) {
     setFields((prev) => ({ ...prev, [key]: value }));
   }, []);
 
+  /*
+   * Verso de la carte : beaucoup de cartes portent au dos la version anglaise,
+   * une adresse ou un second numéro. On le lit avec le même pipeline, mais on
+   * ne remplit que les champs restés vides — le recto reste la référence.
+   */
+  const scanBack = useCallback(async () => {
+    setScanningBack(true);
+    try {
+      const uri = await captureCardImage('camera');
+      if (!uri) return;
+
+      const archive = await prepareForArchive(uri);
+      const stored = await persistImage(archive.uri, 'back');
+      setBackImageUri(stored);
+
+      const report = await scanCard({
+        imageUri: uri,
+        cloudAiEnabled: settings.cloudAiEnabled,
+        defaultCountryCode: settings.defaultCountryCode,
+      });
+
+      let added = 0;
+      setFields((prev) => {
+        const next = { ...prev };
+        (Object.keys(EMPTY_FIELDS) as CardFieldKey[]).forEach((key) => {
+          const value = report.fields[key]?.trim();
+          if (value && !next[key].trim()) {
+            next[key] = value;
+            added += 1;
+          }
+        });
+        return next;
+      });
+
+      Alert.alert(
+        'Verso ajouté',
+        added ? `${added} champ(s) complété(s) depuis le verso.` : 'Aucune information nouvelle au dos.',
+      );
+    } catch (e) {
+      Alert.alert('Lecture du verso impossible', errorMessage(e));
+    } finally {
+      setScanningBack(false);
+    }
+  }, [settings.cloudAiEnabled, settings.defaultCountryCode]);
+
   /* ----------------------------- Actions ------------------------------ */
 
   const persist = useCallback(
@@ -124,12 +176,13 @@ export default function ReviewScreen({ navigation, route }: Props) {
       const next: BusinessCard = {
         ...card,
         ...fields,
+        backImageUri,
         status,
         contactId: contactId ?? card.contactId,
       };
       return cardId ? patch(cardId, next) : upsert(next);
     },
-    [card, cardId, fields, patch, upsert],
+    [backImageUri, card, cardId, fields, patch, upsert],
   );
 
   const saveOnly = useCallback(async () => {
@@ -246,11 +299,18 @@ export default function ReviewScreen({ navigation, route }: Props) {
 
   return (
     <Screen scroll>
-      {payload?.imageUri ? (
-        <Image source={{ uri: payload.imageUri }} style={styles.preview} resizeMode="cover" />
-      ) : card.imageUri ? (
-        <Image source={{ uri: card.imageUri }} style={styles.preview} resizeMode="cover" />
-      ) : null}
+      <View style={styles.previews}>
+        {payload?.imageUri ?? card.imageUri ? (
+          <Image
+            source={{ uri: (payload?.imageUri ?? card.imageUri) as string }}
+            style={styles.preview}
+            resizeMode="cover"
+          />
+        ) : null}
+        {backImageUri ? (
+          <Image source={{ uri: backImageUri }} style={styles.preview} resizeMode="cover" />
+        ) : null}
+      </View>
 
       <View style={styles.badges}>
         <Badge
@@ -299,6 +359,13 @@ export default function ReviewScreen({ navigation, route }: Props) {
 
       <View style={styles.actions}>
         <AppButton
+          label={backImageUri ? 'Rephotographier le verso' : 'Ajouter le verso de la carte'}
+          icon="🔄"
+          variant="secondary"
+          busy={scanningBack}
+          onPress={scanBack}
+        />
+        <AppButton
           label="Enregistrer dans le répertoire"
           icon="✅"
           variant="success"
@@ -332,6 +399,7 @@ function engineLabel(engine: BusinessCard['ocrEngine']): string {
 }
 
 const styles = StyleSheet.create({
+  previews: { gap: spacing.sm },
   preview: {
     width: '100%',
     aspectRatio: 85 / 55,
