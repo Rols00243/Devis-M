@@ -29,7 +29,7 @@ src/          Application web MétréPro (métré et chiffrage)
   styles.css   Tout le style (thème sombre, grille de l'app, tableau, modales)
   app.js       Toute la logique (~1200 lignes, vanilla JS, aucune dépendance sauf pdf.js via CDN)
 
-mobile/       Application mobile MétréCards (scan de cartes de visite) — voir mobile/README.md
+mobile/       Application mobile Scan Card (scan de cartes de visite) — voir mobile/README.md
 ```
 
 Les deux applications sont indépendantes : elles partagent l'univers métier

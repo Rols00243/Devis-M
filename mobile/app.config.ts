@@ -6,12 +6,12 @@ import type { ExpoConfig } from 'expo/config';
  * et l'utilisateur mérite de savoir pourquoi on lui demande l'accès.
  */
 const config: ExpoConfig = {
-  name: 'MétréCards',
-  slug: 'metrecards',
+  name: 'Scan Card',
+  slug: 'scancard',
   version: '1.0.0',
   orientation: 'default', // portrait et paysage : une carte se photographie dans les deux sens
   icon: './assets/icon.png',
-  scheme: 'metrecards',
+  scheme: 'scancard',
   userInterfaceStyle: 'dark',
   assetBundlePatterns: ['**/*'],
 

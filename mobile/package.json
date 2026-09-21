@@ -1,5 +1,5 @@
 {
-  "name": "metrecards",
+  "name": "scancard",
   "version": "1.0.0",
   "main": "index.ts",
   "dependencies": {

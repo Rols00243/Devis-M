@@ -104,12 +104,12 @@ export async function shareCard(card: BusinessCard): Promise<void> {
 
 /** Exporte plusieurs cartes en un seul fichier vCard. */
 export async function shareAllVcf(cards: BusinessCard[]): Promise<void> {
-  const file = writeTemp('contacts-metrecards.vcf', cards.map(toVCard).join('\r\n'));
+  const file = writeTemp('contacts-scancard.vcf', cards.map(toVCard).join('\r\n'));
   await Share.share({ url: file.uri, message: `Export de ${cards.length} contacts`, title: 'Contacts' });
 }
 
 /** Exporte le répertoire au format CSV (Excel, LibreOffice, CRM). */
 export async function shareCsv(cards: BusinessCard[]): Promise<void> {
-  const file = writeTemp('contacts-metrecards.csv', toCsv(cards));
+  const file = writeTemp('contacts-scancard.csv', toCsv(cards));
   await Share.share({ url: file.uri, message: `Export CSV de ${cards.length} contacts`, title: 'Export CSV' });
 }

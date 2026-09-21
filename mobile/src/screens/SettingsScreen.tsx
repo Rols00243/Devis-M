@@ -176,7 +176,7 @@ export default function SettingsScreen({ navigation }: Props) {
       </Card>
 
       <View style={styles.footer}>
-        <Text style={styles.version}>MétréCards · version 1.0.0</Text>
+        <Text style={styles.version}>Scan Card · version 1.0.0</Text>
       </View>
     </Screen>
   );

@@ -29,7 +29,7 @@ export default function HomeScreen({ navigation }: Props) {
     <Screen scroll>
       <View style={styles.header}>
         <Text style={styles.brand}>
-          Métré<Text style={styles.brandAccent}>Cards</Text>
+          Scan <Text style={styles.brandAccent}>Card</Text>
         </Text>
         <Text style={styles.tagline}>
           Scannez une carte de visite, le contact part dans le répertoire.

@@ -1,4 +1,4 @@
-# MétréCards — scanner de cartes de visite
+# Scan Card — enregistreur de cartes de visite
 
 Application mobile **Android et iOS** (React Native + Expo + TypeScript) qui
 photographie une carte de visite, en extrait les informations par **OCR + IA**,

@@ -79,7 +79,7 @@ jobs:
       - name: Joindre l'APK au résultat
         uses: actions/upload-artifact@v4
         with:
-          name: MetreCards-android
+          name: ScanCard-android
           path: mobile/android/app/build/outputs/apk/release/*.apk
           compression-level: 0
           if-no-files-found: error

@@ -55,9 +55,9 @@ export const delay = (ms: number): Promise<void> => new Promise((r) => setTimeou
 
 /** Journalisation centralisée : un seul endroit à brancher sur Sentry plus tard. */
 export const log = {
-  info: (...args: unknown[]) => console.log('[MétréCards]', ...args),
-  warn: (...args: unknown[]) => console.warn('[MétréCards]', ...args),
-  error: (...args: unknown[]) => console.error('[MétréCards]', ...args),
+  info: (...args: unknown[]) => console.log('[ScanCard]', ...args),
+  warn: (...args: unknown[]) => console.warn('[ScanCard]', ...args),
+  error: (...args: unknown[]) => console.error('[ScanCard]', ...args),
 };
 
 /** Message d'erreur lisible, quelle que soit la forme de l'exception. */

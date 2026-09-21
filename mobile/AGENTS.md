@@ -1,4 +1,4 @@
-# MétréCards — contexte pour les agents
+# Scan Card — contexte pour les agents
 
 Application mobile de scan de cartes de visite (React Native + Expo SDK 57 +
 TypeScript). Voir `README.md` pour l'architecture complète.
