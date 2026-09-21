@@ -25,6 +25,11 @@ Pièges déjà rencontrés sur ce SDK :
 
 - **Le moteur d'extraction (`src/ai/`) reste pur** : aucun import React Native,
   pour qu'il tourne sous `node:test`. Toute modification s'accompagne d'un test.
+  Même règle pour `src/services/vcard.ts` et `src/utils/pure.ts`.
+- **Les numéros sortent en E.164.** Toute écriture vers l'extérieur (contact
+  natif, vCard, CSV) passe par `normalizePhone` avec l'indicatif des réglages :
+  c'est ce qui permet au téléphone, à WhatsApp et au compte synchronisé de
+  reconnaître un même numéro.
 - **Une seule couche écrit en base** : `src/database/cardRepository.ts`.
 - **Aucune clé secrète dans l'application.** La clé du modèle d'IA vit dans la
   fonction Edge Supabase. L'app ne connaît que l'URL et la clé anon.

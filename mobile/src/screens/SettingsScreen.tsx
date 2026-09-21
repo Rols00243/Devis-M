@@ -9,6 +9,7 @@ import { Alert, StyleSheet, Switch, Text, View } from 'react-native';
 
 import { AppButton, Card, Row, Screen, SectionTitle } from '../components';
 import { listCards, referencedImages } from '../database/cardRepository';
+import { isAccountHandoffAvailable, sendAllToSyncedAccount } from '../contacts/destinations';
 import { DIALING_CODES } from '../ai/dictionaries';
 import type { RootStackParamList } from '../navigation/types';
 import { isCloudOcrAvailable, isLocalOcrAvailable } from '../ocr';
@@ -78,6 +79,21 @@ export default function SettingsScreen({ navigation }: Props) {
     [],
   );
 
+  const sendAllToAccount = useCallback(async () => {
+    const cards = await listCards();
+    if (!cards.length) {
+      Alert.alert('Rien à envoyer', "Aucune carte n'est enregistrée.");
+      return;
+    }
+    const result = await sendAllToSyncedAccount(cards);
+    if (result === 'unavailable') {
+      Alert.alert(
+        'Envoi impossible',
+        "Aucune application du téléphone ne sait importer un fichier de contacts. Utilisez l'export vCard ci-dessous.",
+      );
+    }
+  }, []);
+
   const nextCountryCode = useCallback(() => {
     // Rotation sur les indicatifs les plus utilisés du marché visé.
     const codes = ['+243', '+242', '+237', '+221', '+225', '+33', '+32', '+212', '+1'];
@@ -113,6 +129,30 @@ export default function SettingsScreen({ navigation }: Props) {
           value={`${settings.defaultCountryCode} · ${DIALING_CODES[settings.defaultCountryCode] ?? ''}`}
           onPress={nextCountryCode}
         />
+      </Card>
+
+      <SectionTitle>Répertoire du téléphone</SectionTitle>
+      <Card>
+        <Toggle
+          label="Proposer le compte synchronisé"
+          hint="Après la création d'un contact, proposer de l'ajouter aussi à un compte Google, iCloud ou Outlook."
+          value={settings.offerSyncedAccount}
+          onChange={toggle('offerSyncedAccount')}
+        />
+        {isAccountHandoffAvailable() ? (
+          <AppButton
+            label="Envoyer toutes mes cartes vers un compte"
+            icon="☁️"
+            variant="secondary"
+            onPress={sendAllToAccount}
+          />
+        ) : null}
+        <Text style={styles.hint}>
+          Les fiches créées par l'application sont écrites sur ce téléphone. Déposées en plus dans
+          un compte synchronisé, elles apparaissent dans Google Contacts ou iCloud, dans la
+          messagerie, sur le web et sur vos autres appareils. Le choix du compte se fait dans
+          l'application Contacts : ni Android ni iOS ne laissent une application le décider.
+        </Text>
       </Card>
 
       <SectionTitle>Moteurs disponibles</SectionTitle>

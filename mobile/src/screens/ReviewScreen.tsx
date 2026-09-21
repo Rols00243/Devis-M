@@ -12,6 +12,7 @@ import { Alert, Image, Linking, StyleSheet, Text, View } from 'react-native';
 import { AppButton, Badge, Card, Field, Loader, Screen, SectionTitle } from '../components';
 import { buildCard, getCard } from '../database/cardRepository';
 import { createContact, ensureContactsPermission, updateContact } from '../contacts/contactService';
+import { isAccountHandoffAvailable, sendToSyncedAccount } from '../contacts/destinations';
 import { findDuplicates, reasonLabel } from '../contacts/duplicates';
 import type { RootStackParamList } from '../navigation/types';
 import { scanCard } from '../ocr';
@@ -210,18 +211,42 @@ export default function ReviewScreen({ navigation, route }: Props) {
 
       if (settings.batchMode) {
         navigation.replace('Scan', { mode: 'batch' });
-      } else {
-        Alert.alert(
-          mode === 'update' ? 'Contact mis à jour' : 'Contact créé',
-          `${displayName(saved)} est dans le répertoire de votre téléphone.`,
-          [
-            { text: 'Scanner une autre carte', onPress: () => navigation.replace('Scan') },
-            { text: 'Terminer', style: 'cancel', onPress: () => navigation.navigate('Home') },
-          ],
-        );
+        return;
       }
+
+      // La fiche est sur l'appareil. Le dépôt dans un compte synchronisé la
+      // rend visible sur les autres appareils et dans Google Contacts ; c'est
+      // l'application Contacts du système qui demande le compte.
+      const offerAccount = settings.offerSyncedAccount && isAccountHandoffAvailable();
+      const buttons = [
+        ...(offerAccount
+          ? [
+              {
+                text: 'Aussi dans mon compte',
+                onPress: () => void sendToSyncedAccount(saved),
+              },
+            ]
+          : []),
+        { text: 'Scanner une autre carte', onPress: () => navigation.replace('Scan') },
+        { text: 'Terminer', style: 'cancel' as const, onPress: () => navigation.navigate('Home') },
+      ];
+
+      Alert.alert(
+        mode === 'update' ? 'Contact mis à jour' : 'Contact créé',
+        offerAccount
+          ? `${displayName(saved)} est dans le répertoire de votre téléphone.\n\nPour le retrouver aussi sur vos autres appareils, dans Gmail et sur le web, ajoutez-le à un compte synchronisé (Google, iCloud, Outlook).`
+          : `${displayName(saved)} est dans le répertoire de votre téléphone.`,
+        buttons,
+      );
     },
-    [navigation, patch, persist, settings.batchMode, settings.rawTextInNotes],
+    [
+      navigation,
+      patch,
+      persist,
+      settings.batchMode,
+      settings.offerSyncedAccount,
+      settings.rawTextInNotes,
+    ],
   );
 
   const handleSaveToPhone = useCallback(async () => {

@@ -153,6 +153,11 @@ export interface AppSettings {
   cloudSyncEnabled: boolean;
   /** Ajouter le texte OCR brut dans les notes du contact. */
   rawTextInNotes: boolean;
+  /**
+   * Proposer, après la création du contact, de le déposer aussi dans un compte
+   * synchronisé (Google, iCloud, Outlook) pour le retrouver sur tout appareil.
+   */
+  offerSyncedAccount: boolean;
   /** Indicatif pays par défaut, utilisé pour normaliser les numéros locaux. */
   defaultCountryCode: string;
 }
@@ -163,5 +168,6 @@ export const DEFAULT_SETTINGS: AppSettings = {
   cloudAiEnabled: true,
   cloudSyncEnabled: false,
   rawTextInNotes: false,
+  offerSyncedAccount: true,
   defaultCountryCode: '+243',
 };

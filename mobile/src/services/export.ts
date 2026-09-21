@@ -1,115 +1,87 @@
 /**
- * Exports : vCard (.vcf) pour le répertoire et les messageries, CSV pour Excel.
- * Les fichiers sont écrits dans le cache puis proposés au partage système.
+ * Sortie des cartes vers l'extérieur : écriture d'un fichier vCard ou CSV dans
+ * le cache, puis passage au partage système.
+ *
+ * Le fichier est toujours un vrai fichier (et non du texte collé dans le
+ * partage) : c'est ce qui permet à l'application Contacts, à Google Contacts,
+ * à Outlook ou à Drive de le reconnaître et de l'importer.
  */
 import { Directory, File, Paths } from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 import { Share } from 'react-native';
 
-import { normalizePhone } from '../ai/patterns';
+import { useSettingsStore } from '../store/settingsStore';
 import type { BusinessCard } from '../types';
-import { displayName } from '../utils';
+import { displayName, errorMessage, log, slug } from '../utils';
+import { toCsv, toVCard, toVCardBook } from './vcard';
 
-/* --------------------------------- vCard --------------------------------- */
+export { toCsv, toVCard, toVCardBook } from './vcard';
 
-const escapeVcf = (s: string): string =>
-  (s || '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
+/**
+ * Les numéros sortent toujours au format international : c'est ce qui permet à
+ * WhatsApp, à Google Contacts et au téléphone de reconnaître un même numéro.
+ * L'indicatif par défaut complète ceux qui ont été saisis en local.
+ */
+const vcardOptions = () => ({
+  defaultCountryCode: useSettingsStore.getState().settings.defaultCountryCode,
+});
 
-/** Fiche vCard 3.0 — format lu nativement par Android, iOS, Outlook et Gmail. */
-export function toVCard(card: BusinessCard): string {
-  const lines = ['BEGIN:VCARD', 'VERSION:3.0'];
-  lines.push(`N:${escapeVcf(card.lastName)};${escapeVcf(card.firstName)};;;`);
-  lines.push(`FN:${escapeVcf(displayName(card))}`);
-  if (card.company) lines.push(`ORG:${escapeVcf(card.company)}`);
-  if (card.jobTitle) lines.push(`TITLE:${escapeVcf(card.jobTitle)}`);
-  if (card.phone) lines.push(`TEL;TYPE=CELL:${normalizePhone(card.phone).e164}`);
-  if (card.secondaryPhone) lines.push(`TEL;TYPE=WORK,VOICE:${normalizePhone(card.secondaryPhone).e164}`);
-  if (card.whatsapp) lines.push(`TEL;TYPE=CELL,WhatsApp:${normalizePhone(card.whatsapp).e164}`);
-  if (card.email) lines.push(`EMAIL;TYPE=INTERNET,WORK:${card.email}`);
-  if (card.website) lines.push(`URL:${withScheme(card.website)}`);
-  if (card.linkedin) lines.push(`URL;TYPE=LinkedIn:${withScheme(card.linkedin)}`);
-  if (card.address || card.city || card.country) {
-    lines.push(
-      `ADR;TYPE=WORK:;;${escapeVcf(card.address)};${escapeVcf(card.city)};;;${escapeVcf(card.country)}`,
-    );
-  }
-  if (card.notes) lines.push(`NOTE:${escapeVcf(card.notes)}`);
-  lines.push(`REV:${card.updatedAt}`);
-  lines.push('END:VCARD');
-  return lines.join('\r\n');
-}
+/** Type MIME des vCard ; `text/x-vcard` reste le mieux reconnu sur Android. */
+export const VCARD_MIME = 'text/x-vcard';
 
-const withScheme = (url: string): string => (/^https?:\/\//i.test(url) ? url : `https://${url}`);
-
-/* ---------------------------------- CSV ---------------------------------- */
-
-const CSV_COLUMNS: [keyof BusinessCard, string][] = [
-  ['firstName', 'Prénom'],
-  ['lastName', 'Nom'],
-  ['jobTitle', 'Fonction'],
-  ['company', 'Entreprise'],
-  ['phone', 'Téléphone'],
-  ['secondaryPhone', 'Téléphone secondaire'],
-  ['whatsapp', 'WhatsApp'],
-  ['email', 'E-mail'],
-  ['website', 'Site web'],
-  ['linkedin', 'LinkedIn'],
-  ['address', 'Adresse'],
-  ['city', 'Ville'],
-  ['country', 'Pays'],
-  ['notes', 'Notes'],
-];
-
-export function toCsv(cards: BusinessCard[]): string {
-  const escape = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
-  const header = [...CSV_COLUMNS.map(([, label]) => escape(label)), escape('Scannée le')].join(';');
-  const rows = cards.map((card) =>
-    [
-      ...CSV_COLUMNS.map(([key]) => escape(card[key])),
-      escape(new Date(card.createdAt).toLocaleDateString('fr-FR')),
-    ].join(';'),
-  );
-  // Le BOM force Excel à lire l'UTF-8 : sans lui, les accents sont illisibles.
-  return '\uFEFF' + [header, ...rows].join('\r\n');
-}
-
-/* -------------------------------- Partage -------------------------------- */
-
-function writeTemp(name: string, content: string): File {
+/** Écrit un fichier dans le cache de l'application et renvoie son URI locale. */
+export function writeTempFile(name: string, content: string): string {
   const dir = new Directory(Paths.cache, 'exports');
   if (!dir.exists) dir.create({ intermediates: true, idempotent: true });
   const file = new File(dir, name);
   if (file.exists) file.delete();
   file.create();
   file.write(content);
-  return file;
+  return file.uri;
 }
 
-const slug = (s: string): string =>
-  s
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-zA-Z0-9]+/g, '-')
-    .replace(/^-|-$/g, '')
-    .toLowerCase() || 'contact';
+/** Fichier vCard d'une carte, prêt à être partagé ou importé. */
+export function vcfFileFor(card: BusinessCard): string {
+  return writeTempFile(`${slug(displayName(card))}.vcf`, toVCard(card, vcardOptions()));
+}
+
+/** Fichier vCard regroupant plusieurs cartes (un seul import à faire). */
+export function vcfBookFileFor(cards: BusinessCard[], name = 'contacts-scancard.vcf'): string {
+  return writeTempFile(name, toVCardBook(cards, vcardOptions()));
+}
+
+/**
+ * Partage un fichier. `expo-sharing` gère l'URI `content://` et l'autorisation
+ * de lecture attendues par Android ; `Share` sert de repli.
+ */
+async function shareFile(uri: string, mimeType: string, title: string): Promise<void> {
+  try {
+    if (await Sharing.isAvailableAsync()) {
+      await Sharing.shareAsync(uri, { mimeType, dialogTitle: title, UTI: utiFor(mimeType) });
+      return;
+    }
+  } catch (e) {
+    log.warn('Partage de fichier indisponible', errorMessage(e));
+  }
+  await Share.share({ url: uri, title });
+}
+
+const utiFor = (mimeType: string): string =>
+  mimeType === VCARD_MIME ? 'public.vcard' : 'public.comma-separated-values-text';
 
 /** Partage une carte au format vCard (message, e-mail, AirDrop…). */
 export async function shareCard(card: BusinessCard): Promise<void> {
-  const file = writeTemp(`${slug(displayName(card))}.vcf`, toVCard(card));
-  await Share.share({
-    url: file.uri, // iOS
-    message: toVCard(card), // Android : le texte est le vecteur le plus sûr
-    title: displayName(card),
-  });
+  await shareFile(vcfFileFor(card), VCARD_MIME, displayName(card));
 }
 
 /** Exporte plusieurs cartes en un seul fichier vCard. */
 export async function shareAllVcf(cards: BusinessCard[]): Promise<void> {
-  const file = writeTemp('contacts-scancard.vcf', cards.map(toVCard).join('\r\n'));
-  await Share.share({ url: file.uri, message: `Export de ${cards.length} contacts`, title: 'Contacts' });
+  const uri = vcfBookFileFor(cards);
+  await shareFile(uri, VCARD_MIME, `${cards.length} contacts`);
 }
 
 /** Exporte le répertoire au format CSV (Excel, LibreOffice, CRM). */
 export async function shareCsv(cards: BusinessCard[]): Promise<void> {
-  const file = writeTemp('contacts-scancard.csv', toCsv(cards));
-  await Share.share({ url: file.uri, message: `Export CSV de ${cards.length} contacts`, title: 'Export CSV' });
+  const uri = writeTempFile('contacts-scancard.csv', toCsv(cards));
+  await shareFile(uri, 'text/csv', `Export CSV de ${cards.length} contacts`);
 }

@@ -39,6 +39,16 @@ export function deleteImage(uri: string | null): void {
   }
 }
 
+/** L'image existe-t-elle encore sur le disque ? Jamais une exception. */
+export function imageExists(uri: string | null | undefined): boolean {
+  if (!uri) return false;
+  try {
+    return new File(uri).exists;
+  } catch {
+    return false;
+  }
+}
+
 /** Contenu base64 d'une image, pour l'envoi à l'extraction cloud. */
 export async function imageToBase64(uri: string): Promise<string> {
   const file = new File(uri);

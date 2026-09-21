@@ -13,6 +13,7 @@ import { createContact, ensureContactsPermission } from '../contacts/contactServ
 import { getCard } from '../database/cardRepository';
 import type { RootStackParamList } from '../navigation/types';
 import { shareCard } from '../services/export';
+import { isAccountHandoffAvailable, sendToSyncedAccount } from '../contacts/destinations';
 import { useCardsStore } from '../store/cardsStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { colors, radius, spacing, typography } from '../theme';
@@ -181,6 +182,14 @@ export default function CardDetailScreen({ navigation, route }: Props) {
           variant="secondary"
           onPress={() => navigation.navigate('Review', { cardId: card.id })}
         />
+        {isAccountHandoffAvailable() ? (
+          <AppButton
+            label="Ajouter à un compte synchronisé"
+            icon="☁️"
+            variant="secondary"
+            onPress={() => void sendToSyncedAccount(card)}
+          />
+        ) : null}
         <AppButton label="Partager la fiche" icon="↗" variant="secondary" onPress={() => shareCard(card)} />
         <AppButton label="Rescanner cette carte" icon="🔄" variant="ghost" onPress={() => navigation.navigate('Scan')} />
         <AppButton label="Supprimer" icon="🗑" variant="danger" onPress={confirmDelete} />

@@ -24,7 +24,8 @@ OUVRIR  →  SCANNER  →  OCR + IA  →  VÉRIFIER  →  « ENREGISTRER »  →
 | Extraction IA cloud (Claude vision) en renfort, dont l'arabe | ✅ |
 | Écran de vérification, champs peu sûrs signalés | ✅ |
 | Détection des doublons (numéro, e-mail, nom + entreprise) | ✅ |
-| Création / mise à jour du contact natif | ✅ |
+| Création / mise à jour du contact natif (avec la photo de la carte) | ✅ |
+| Dépôt du contact dans un compte synchronisé (Google, iCloud, Outlook) | ✅ |
 | Base locale SQLite, fonctionnement hors ligne complet | ✅ |
 | Historique, recherche multi-critères, fiche détaillée | ✅ |
 | Export vCard et CSV, partage | ✅ |
@@ -119,10 +120,12 @@ src/
     index.ts          orchestrateur : local d'abord, cloud si nécessaire
   contacts/      répertoire natif
     contactService.ts création / mise à jour, permissions
+    destinations.ts   dépôt de la fiche dans un compte synchronisé
     duplicates.ts     détection des doublons
   database/      SQLite : source de vérité locale
   storage/       images des cartes (dossier privé de l'app)
   services/      supabase, auth, synchronisation, exports
+    vcard.ts          vCard 3.0 et CSV (pur, testé)
   store/         état global (zustand)
   screens/       accueil, scan, vérification, cartes, fiche, historique, réglages, compte
   components/    composants d'interface partagés
@@ -153,6 +156,19 @@ capture et redressent la perspective. Aucune boucle JavaScript n'atteint ce
 niveau de fluidité. L'écran caméra intégré prend le relais si le module est
 absent.
 
+**Le numéro doit être trouvable partout.** Un contact écrit par une
+application atterrit *sur l'appareil* : il s'affiche dans le répertoire, donc
+dans le téléphone, dans WhatsApp et dans toute application qui lit les
+contacts — mais il n'est recopié dans aucun compte, et il ne suit pas
+l'utilisateur qui change de téléphone. L'application propose donc, juste après
+la création, de déposer la même fiche dans un compte synchronisé : elle est
+remise à l'application Contacts du système sous forme de vCard, et celle-ci
+demande le compte (Google, iCloud, Outlook). Le numéro apparaît alors aussi
+dans Google Contacts, dans la messagerie, sur le web et sur les autres
+appareils. Ni Android ni iOS ne laissent une application choisir ce compte
+elle-même ; Android regroupe les fiches de même nom, donc écrire aux deux
+endroits n'affiche pas deux contacts.
+
 **Sécurité appliquée par le serveur.** Les règles RLS de PostgreSQL garantissent
 qu'un utilisateur ne lit que ses propres cartes, même si le client est modifié.
 La clé publique de l'application n'ouvre aucun accès par elle-même.
@@ -177,7 +193,7 @@ Quelques comportements couverts par les tests :
 - le pays se déduit de la ville, de l'indicatif ou du domaine national.
 
 ```bash
-npm test     # 22 tests
+npm test     # 30 tests
 ```
 
 ---
