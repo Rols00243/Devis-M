@@ -38,7 +38,24 @@ Ou ouvrez simplement `src/index.html` dans un navigateur (Chrome, Firefox, Edge�
 - `src/index.html` — interface
 - `src/styles.css` — style
 - `src/app.js` — logique (vanilla JS, seule dépendance : pdf.js via CDN)
+- `mobile/` — **MétréCards**, l'application mobile de scan de cartes de visite
 - `CLAUDE.md` — contexte et feuille de route pour développer avec Claude Code
+
+## MétréCards — application mobile
+
+`mobile/` contient une application Android et iOS (React Native + Expo +
+TypeScript) qui photographie une carte de visite, en extrait les coordonnées par
+**OCR + IA**, les fait vérifier, puis crée le contact **dans le répertoire du
+téléphone**. Elle fonctionne hors ligne et peut sauvegarder les cartes en ligne.
+
+```bash
+cd mobile
+npm install
+npm run android     # ou npm run ios (macOS)
+```
+
+Voir `mobile/README.md` pour l'architecture, la configuration du cloud et les
+décisions techniques.
 
 ## Feuille de route
 

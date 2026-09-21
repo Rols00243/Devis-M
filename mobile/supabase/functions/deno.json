@@ -1,0 +1,8 @@
+{
+  "//": "Les fonctions Edge tournent sous Deno, pas sous Metro : elles sont exclues du tsconfig de l'application et se vérifient avec `deno check supabase/functions/**/index.ts`.",
+  "lock": false,
+  "compilerOptions": {
+    "strict": true,
+    "lib": ["deno.window", "dom"]
+  }
+}
