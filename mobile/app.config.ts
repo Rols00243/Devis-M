@@ -91,7 +91,15 @@ const config: ExpoConfig = {
       'expo-build-properties',
       {
         // Valeurs alignées sur celles d'Expo SDK 57 ; ML Kit exige Android 7 (API 24) au minimum.
-        android: { minSdkVersion: 24, compileSdkVersion: 36, targetSdkVersion: 36 },
+        // La minification et le retrait des ressources inutilisées allègent
+        // nettement l'APK, que l'utilisateur doit transférer sur son téléphone.
+        android: {
+          minSdkVersion: 24,
+          compileSdkVersion: 36,
+          targetSdkVersion: 36,
+          enableMinifyInReleaseBuilds: true,
+          enableShrinkResourcesInReleaseBuilds: true,
+        },
         ios: { deploymentTarget: '16.4' },
       },
     ],
