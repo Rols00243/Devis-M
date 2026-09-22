@@ -21,6 +21,7 @@ OUVRIR  →  SCANNER  →  OCR + IA  →  VÉRIFIER  →  « ENREGISTRER »  →
 | Recto-verso : le dos complète les champs restés vides | ✅ |
 | OCR hors ligne (Google ML Kit) | ✅ |
 | Extraction intelligente des 14 champs | ✅ |
+| Rien n'est jeté : tout le reste de la carte est conservé et modifiable | ✅ |
 | Extraction IA cloud (Claude vision) en renfort, dont l'arabe | ✅ |
 | Écran de vérification, champs peu sûrs signalés | ✅ |
 | Détection des doublons (numéro, e-mail, nom + entreprise) | ✅ |
@@ -156,6 +157,18 @@ capture et redressent la perspective. Aucune boucle JavaScript n'atteint ce
 niveau de fluidité. L'écran caméra intégré prend le relais si le module est
 absent.
 
+**Une carte ne tient pas dans un formulaire.** Le formulaire a 14 cases ; une
+carte imprime ce qu'elle veut — un troisième numéro, un fax, un deuxième
+e-mail, une page Facebook, un RCCM, une seconde agence, un slogan. Le moteur
+attribue chaque ligne au champ qui lui convient, puis **conserve tout le reste**
+sous forme d'informations supplémentaires, libellées et modifiables à la
+vérification. Une ligne que le moteur ne comprend pas n'est pas du bruit : c'est
+une information de la carte, et elle est gardée telle quelle. À
+l'enregistrement, chacune rejoint le champ natif qui lui correspond — un numéro
+dans les numéros, un e-mail dans les e-mails, un réseau social dans les profils
+— et ce qui n'a pas de champ dédié est écrit dans les notes du contact. Le texte
+OCR intégral reste par ailleurs attaché à la carte.
+
 **Le numéro doit être trouvable partout.** Un contact écrit par une
 application atterrit *sur l'appareil* : il s'affiche dans le répertoire, donc
 dans le téléphone, dans WhatsApp et dans toute application qui lit les
@@ -190,10 +203,12 @@ Quelques comportements couverts par les tests :
 - le mobile devient le téléphone principal et alimente WhatsApp ;
 - `+243 8l 0OO 12 34` est corrigé en `+243810001234` ;
 - une adresse Gmail ne devient pas un nom d'entreprise ;
-- le pays se déduit de la ville, de l'indicatif ou du domaine national.
+- le pays se déduit de la ville, de l'indicatif ou du domaine national ;
+- un fax ne devient jamais le téléphone principal, même seul sur la carte ;
+- un troisième numéro, un second e-mail, un RCCM ou un slogan sont conservés.
 
 ```bash
-npm test     # 30 tests
+npm test     # 41 tests
 ```
 
 ---

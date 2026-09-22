@@ -19,7 +19,7 @@ import {
   pendingSyncCards,
   hardDeleteCard,
 } from '../database/cardRepository';
-import type { BusinessCard } from '../types';
+import type { BusinessCard, ExtraItem } from '../types';
 import { errorMessage, log } from '../utils';
 import { getCurrentSession } from './auth';
 import { CARDS_BUCKET, CARDS_TABLE, getSupabase } from './supabase';
@@ -149,6 +149,7 @@ interface RemoteRow {
   linkedin: string;
   notes: string;
   raw_text: string;
+  extras: unknown;
   confidence: Record<string, number> | null;
   status: BusinessCard['status'];
   contact_id: string | null;
@@ -180,6 +181,7 @@ function toRemoteRow(card: BusinessCard, ownerId: string, imagePath: string | nu
     linkedin: card.linkedin,
     notes: card.notes,
     raw_text: card.rawText,
+    extras: card.extras ?? [],
     confidence: card.confidence as Record<string, number>,
     status: card.status,
     contact_id: card.contactId,
@@ -213,6 +215,7 @@ function fromRemoteRow(row: RemoteRow): BusinessCard {
     imageUri: null,
     backImageUri: null,
     rawText: row.raw_text ?? '',
+    extras: Array.isArray(row.extras) ? (row.extras as ExtraItem[]) : [],
     confidence: row.confidence ?? {},
     status: row.status ?? 'validated',
     contactId: row.contact_id,

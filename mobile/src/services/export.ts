@@ -22,8 +22,9 @@ export { toCsv, toVCard, toVCardBook } from './vcard';
  * WhatsApp, à Google Contacts et au téléphone de reconnaître un même numéro.
  * L'indicatif par défaut complète ceux qui ont été saisis en local.
  */
-const vcardOptions = () => ({
+const vcardOptions = (card?: BusinessCard) => ({
   defaultCountryCode: useSettingsStore.getState().settings.defaultCountryCode,
+  extras: card?.extras,
 });
 
 /** Type MIME des vCard ; `text/x-vcard` reste le mieux reconnu sur Android. */
@@ -42,7 +43,7 @@ export function writeTempFile(name: string, content: string): string {
 
 /** Fichier vCard d'une carte, prêt à être partagé ou importé. */
 export function vcfFileFor(card: BusinessCard): string {
-  return writeTempFile(`${slug(displayName(card))}.vcf`, toVCard(card, vcardOptions()));
+  return writeTempFile(`${slug(displayName(card))}.vcf`, toVCard(card, vcardOptions(card)));
 }
 
 /** Fichier vCard regroupant plusieurs cartes (un seul import à faire). */

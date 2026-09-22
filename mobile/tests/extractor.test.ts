@@ -190,3 +190,97 @@ test('séparation prénom / nom', () => {
   assert.deepEqual(splitName(['DUPONT', 'Jean'], []), { firstName: 'Jean', lastName: 'Dupont' });
   assert.deepEqual(splitName(['Jean', 'Dupont'], []), { firstName: 'Jean', lastName: 'Dupont' });
 });
+
+/* ------------------------------------------------------------------ */
+/* Rien de ce qui est imprimé sur la carte ne doit être perdu          */
+/* ------------------------------------------------------------------ */
+
+/** Valeurs des informations supplémentaires, pour des assertions lisibles. */
+const extraValues = (extras: { value: string }[]) => extras.map((e) => e.value);
+
+/** Retrouve une information supplémentaire par un fragment de sa valeur. */
+const findExtra = (extras: { label: string; value: string; kind: string }[], part: string) =>
+  extras.find((e) => e.value.toLowerCase().includes(part.toLowerCase()));
+
+test('un troisième numéro est conservé au lieu d’être jeté', () => {
+  const texte = [
+    'Jean Dupont',
+    'Mob : +243 81 000 0000',
+    'Tél : +243 99 111 1111',
+    'Fax : +243 99 222 2222',
+  ].join('\n');
+
+  const { fields, extras } = extractFields({ text: texte });
+
+  assert.ok(fields.phone, 'le principal est rempli');
+  assert.ok(fields.secondaryPhone, 'le secondaire est rempli');
+  const fax = findExtra(extras, '222');
+  assert.ok(fax, `fax attendu dans les extras, reçu : ${extraValues(extras).join(' | ')}`);
+  assert.equal(fax?.label, 'Fax');
+  assert.equal(fax?.kind, 'phone');
+});
+
+test('le deuxième e-mail n’écrase plus le fax', () => {
+  // Régression : les deux partageaient le champ « notes », le dernier gagnait.
+  const texte = [
+    'Jean Dupont',
+    'jean@abc.com',
+    'contact@abc.com',
+    'Fax : +243 99 222 2222',
+  ].join('\n');
+
+  const { fields, extras } = extractFields({ text: texte });
+
+  assert.equal(fields.email, 'jean@abc.com');
+  assert.ok(findExtra(extras, 'contact@abc.com'), 'second e-mail conservé');
+  assert.ok(findExtra(extras, '222'), 'fax conservé en même temps');
+});
+
+test('les mentions légales sont gardées avec leur libellé', () => {
+  const texte = ['ABC Construction SARL', 'RCCM : CD/KIN/RCCM/22-B-1234', 'ID. NAT : 01-A5678'].join('\n');
+
+  const { extras } = extractFields({ text: texte });
+
+  const rccm = findExtra(extras, 'RCCM/22-B-1234');
+  assert.ok(rccm, `RCCM attendu, reçu : ${extraValues(extras).join(' | ')}`);
+  assert.equal(rccm?.kind, 'id');
+  assert.ok(findExtra(extras, '01-A5678'), 'ID. NAT conservé');
+});
+
+test('une page Facebook est rangée comme réseau social, pas comme site', () => {
+  const texte = ['ABC Construction SARL', 'www.abc.com', 'facebook.com/abcconstruction'].join('\n');
+
+  const { fields, extras } = extractFields({ text: texte });
+
+  assert.equal(fields.website, 'www.abc.com');
+  const fb = findExtra(extras, 'facebook.com/abcconstruction');
+  assert.ok(fb, `Facebook attendu, reçu : ${extraValues(extras).join(' | ')}`);
+  assert.equal(fb?.kind, 'social');
+  assert.equal(fb?.label, 'Facebook');
+});
+
+test('une ligne que le moteur ne comprend pas reste une information de la carte', () => {
+  const texte = [
+    'Jean Dupont',
+    'Directeur Général',
+    'ABC Construction SARL',
+    '+243 81 000 0000',
+    'Votre chantier, notre métier depuis 1998',
+  ].join('\n');
+
+  const { extras } = extractFields({ text: texte });
+
+  assert.ok(
+    findExtra(extras, 'notre métier depuis 1998'),
+    `slogan attendu, reçu : ${extraValues(extras).join(' | ')}`,
+  );
+});
+
+test('le deuxième site web est conservé', () => {
+  const texte = ['ABC Construction SARL', 'www.abc.com', 'boutique.abc-shop.com'].join('\n');
+
+  const { fields, extras } = extractFields({ text: texte });
+
+  assert.equal(fields.website, 'www.abc.com');
+  assert.ok(findExtra(extras, 'abc-shop.com'), 'second site conservé');
+});

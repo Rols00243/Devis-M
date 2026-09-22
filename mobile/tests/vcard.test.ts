@@ -16,6 +16,7 @@ function card(overrides: Partial<BusinessCard> = {}): BusinessCard {
     imageUri: null,
     backImageUri: null,
     rawText: '',
+    extras: [],
     confidence: {},
     status: 'validated',
     contactId: null,
@@ -85,4 +86,35 @@ test('le CSV commence par un BOM et une ligne d’en-tête', () => {
   const csv = toCsv([card({ firstName: 'Jean', lastName: 'Dupont' })]);
   assert.ok(csv.startsWith('﻿"Prénom"'));
   assert.equal(csv.split('\r\n').length, 2);
+});
+
+test('les informations supplémentaires partent dans la vCard', () => {
+  const vcf = toVCard(card({ firstName: 'Jean', lastName: 'Dupont', notes: 'Rencontré au salon' }), {
+    ...RDC,
+    extras: [
+      { label: 'Fax', value: '+243992222222', kind: 'phone' },
+      { label: 'Autre e-mail', value: 'contact@abc.com', kind: 'email' },
+      { label: 'Facebook', value: 'facebook.com/abc', kind: 'social' },
+      { label: 'RCCM', value: 'CD/KIN/RCCM/22-B-1234', kind: 'id' },
+    ],
+  });
+
+  assert.ok(vcf.includes('+243992222222'), 'le fax est un numéro de la fiche');
+  assert.ok(vcf.includes('EMAIL;TYPE=INTERNET:contact@abc.com'));
+  assert.ok(vcf.includes('X-SOCIALPROFILE;TYPE=facebook:facebook.com/abc'));
+  // Ce qui n'a pas de champ dédié rejoint la note, avec son libellé.
+  const note = lines(vcf).find((l) => l.startsWith('NOTE:'));
+  assert.ok(note?.includes('Rencontré au salon'), `note attendue, reçu : ${note}`);
+  assert.ok(note?.includes('RCCM : CD/KIN/RCCM/22-B-1234'), `RCCM attendu, reçu : ${note}`);
+});
+
+test('le CSV porte aussi les informations supplémentaires', () => {
+  const csv = toCsv([
+    card({
+      firstName: 'Jean',
+      extras: [{ label: 'RCCM', value: 'CD/KIN/RCCM/22-B-1234', kind: 'id' }],
+    }),
+  ]);
+  assert.ok(csv.includes('"Autres informations"'), 'colonne présente dans l’en-tête');
+  assert.ok(csv.includes('RCCM : CD/KIN/RCCM/22-B-1234'), 'valeur exportée');
 });

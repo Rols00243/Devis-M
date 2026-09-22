@@ -158,6 +158,15 @@ export default function CardDetailScreen({ navigation, route }: Props) {
         {card.notes ? <Row icon="📝" label="Notes" value={card.notes} /> : null}
       </Card>
 
+      {card.extras?.length ? (
+        <Card>
+          <SectionTitle>Autres informations de la carte</SectionTitle>
+          {card.extras.map((extra, index) => (
+            <Row key={`${extra.label}-${index}`} label={extra.label} value={extra.value} />
+          ))}
+        </Card>
+      ) : null}
+
       <Card>
         <SectionTitle>Scan</SectionTitle>
         <Row label="Scannée le" value={formatDateTime(card.createdAt)} />

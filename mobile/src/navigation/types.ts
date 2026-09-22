@@ -1,9 +1,11 @@
-import type { CardFields, FieldConfidence, OcrEngine } from '../types';
+import type { CardFields, ExtraItem, FieldConfidence, OcrEngine } from '../types';
 
 /** Données transmises de l'écran de scan à l'écran de vérification. */
 export interface ReviewPayload {
   fields: CardFields;
   confidence: FieldConfidence;
+  /** Informations lues sur la carte au-delà des 14 champs. */
+  extras: ExtraItem[];
   rawText: string;
   engine: OcrEngine;
   languages: string[];

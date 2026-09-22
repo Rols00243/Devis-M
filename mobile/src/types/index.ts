@@ -41,6 +41,28 @@ export const EMPTY_FIELDS: CardFields = {
 
 export type CardFieldKey = keyof CardFields;
 
+/**
+ * Nature d'une information supplémentaire lue sur la carte. Elle décide de
+ * l'endroit où l'information est écrite dans le contact du téléphone : un
+ * numéro va dans les numéros, un e-mail dans les e-mails, le reste en notes.
+ */
+export type ExtraKind = 'phone' | 'email' | 'website' | 'social' | 'id' | 'address' | 'text';
+
+/**
+ * Information présente sur la carte mais qui n'entre dans aucun des 14 champs :
+ * troisième numéro, deuxième e-mail, fax, RCCM, page Facebook, slogan, agence…
+ *
+ * Une carte peut porter n'importe quoi ; le formulaire, lui, a un nombre fixe
+ * de cases. Ces « extras » existent pour que rien de ce qui a été lu ne soit
+ * jeté : tout est montré à la vérification, puis écrit dans le contact.
+ */
+export interface ExtraItem {
+  /** Libellé affiché et repris dans le contact (« Fax », « RCCM », « Autre e-mail »). */
+  label: string;
+  value: string;
+  kind: ExtraKind;
+}
+
 /** Ordre d'affichage et libellés FR de chaque champ dans l'écran de vérification. */
 export const FIELD_LABELS: Record<CardFieldKey, string> = {
   firstName: 'Prénom',
@@ -82,6 +104,8 @@ export interface BusinessCard extends CardFields {
   backImageUri: string | null;
   /** Texte OCR brut, conservé pour ré-extraction sans re-scanner. */
   rawText: string;
+  /** Tout ce que la carte porte en plus des 14 champs ; jamais perdu. */
+  extras: ExtraItem[];
   confidence: FieldConfidence;
   status: CardStatus;
   /** Identifiant du contact créé dans le répertoire natif (expo-contacts). */
@@ -109,6 +133,8 @@ export interface OcrResult {
   /** Champs déjà structurés quand le moteur sait le faire (extraction IA cloud). */
   fields?: Partial<CardFields>;
   confidence?: FieldConfidence;
+  /** Informations lues au-delà des 14 champs, quand le moteur sait les rendre. */
+  extras?: ExtraItem[];
   languages?: string[];
 }
 
@@ -124,6 +150,8 @@ export interface OcrLine {
 export interface ScanOutcome {
   fields: CardFields;
   confidence: FieldConfidence;
+  /** Informations lues sur la carte au-delà des 14 champs. */
+  extras: ExtraItem[];
   rawText: string;
   engine: OcrEngine;
   languages: string[];

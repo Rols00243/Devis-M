@@ -175,6 +175,20 @@ export const ADDRESS_HINTS =
 export const ADMIN_IDS =
   /(siret|siren|r\.?c\.?c\.?m|r\.?c\.?s|tva|vat|ape\b|naf\b|iban|bic|swift|rib|capital|id\.?\s?nat|idnat|impot|imp[ôo]t|nif\b|ifu\b|stat\b|registre|patente|licence)/i;
 
+/**
+ * Réseaux sociaux imprimés sur les cartes. Reconnus pour être rangés comme
+ * profils du contact plutôt que noyés dans les notes.
+ */
+export const SOCIAL_NETWORKS: { name: string; pattern: RegExp }[] = [
+  { name: 'Facebook', pattern: /(facebook\.com|fb\.com|fb\.me|\bfacebook\b)/i },
+  { name: 'Instagram', pattern: /(instagram\.com|\binstagram\b|\binsta\b)/i },
+  { name: 'X', pattern: /(twitter\.com|\bx\.com\b|\btwitter\b)/i },
+  { name: 'YouTube', pattern: /(youtube\.com|youtu\.be|\byoutube\b)/i },
+  { name: 'TikTok', pattern: /(tiktok\.com|\btiktok\b)/i },
+  { name: 'Telegram', pattern: /(t\.me|\btelegram\b)/i },
+  { name: 'Skype', pattern: /\bskype\b/i },
+];
+
 /** Étiquettes de numéros. */
 export const LABEL_MOBILE = /(mob(ile)?|port(able)?|gsm|cell(ulaire|phone)?|\bm\s*[:.]|جوال|محمول)/i;
 export const LABEL_WHATSAPP = /(whats\s?app|wa\b|واتساب)/i;

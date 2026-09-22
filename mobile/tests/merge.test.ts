@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { lowConfidenceFields, mergeExtractions } from '../src/ai/merge.ts';
+import { lowConfidenceFields, mergeExtractions, mergeExtras } from '../src/ai/merge.ts';
 import { EMPTY_FIELDS, type CardFields } from '../src/types/index.ts';
 
 const fields = (partial: Partial<CardFields>): CardFields => ({ ...EMPTY_FIELDS, ...partial });
@@ -48,4 +48,36 @@ test('les champs peu sûrs sont signalés à l’utilisateur', () => {
     { firstName: 0.9, company: 0.3, email: 0 },
   );
   assert.deepEqual(flagged, ['company'], 'seul un champ rempli et incertain est signalé');
+});
+
+/* ------------------------------------------------------------------ */
+/* Fusion des informations supplémentaires                             */
+/* ------------------------------------------------------------------ */
+
+test('les extras des deux moteurs sont réunis sans doublon', () => {
+  const local = [{ label: 'Fax', value: '+243 99 222 2222', kind: 'phone' as const }];
+  const cloud = [
+    { label: 'Fax', value: '+243992222222', kind: 'phone' as const },
+    { label: 'RCCM', value: 'CD/KIN/RCCM/22-B-1234', kind: 'id' as const },
+  ];
+
+  const merged = mergeExtras(local, cloud, EMPTY_FIELDS);
+
+  assert.equal(merged.length, 2, `doublon de fax attendu fusionné : ${JSON.stringify(merged)}`);
+  assert.ok(merged.some((e) => e.value.includes('RCCM/22-B-1234')));
+});
+
+test('une valeur déjà placée dans un champ ne se répète pas en extras', () => {
+  const fields = { ...EMPTY_FIELDS, phone: '+243 81 000 0000' };
+  const merged = mergeExtras(
+    [{ label: 'Autre téléphone', value: '+243810000000', kind: 'phone' }],
+    [],
+    fields,
+  );
+  assert.deepEqual(merged, []);
+});
+
+test('un extra sans libellé reçoit un libellé par défaut', () => {
+  const merged = mergeExtras([{ label: '', value: 'Slogan de la carte', kind: 'text' }], [], EMPTY_FIELDS);
+  assert.equal(merged[0]?.label, 'Sur la carte');
 });

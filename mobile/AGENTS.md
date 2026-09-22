@@ -30,6 +30,10 @@ Pièges déjà rencontrés sur ce SDK :
   natif, vCard, CSV) passe par `normalizePhone` avec l'indicatif des réglages :
   c'est ce qui permet au téléphone, à WhatsApp et au compte synchronisé de
   reconnaître un même numéro.
+- **Rien de ce qui est lu sur la carte n'est jeté.** Ce qui n'entre dans aucun
+  des 14 champs part dans `extras` (`ExtraItem[]`), s'affiche à la vérification
+  et suit le contact jusque dans le répertoire. Un nouveau cas de carte se
+  traite en enrichissant `extras`, jamais en ignorant une ligne.
 - **Une seule couche écrit en base** : `src/database/cardRepository.ts`.
 - **Aucune clé secrète dans l'application.** La clé du modèle d'IA vit dans la
   fonction Edge Supabase. L'app ne connaît que l'URL et la clé anon.

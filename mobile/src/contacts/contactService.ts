@@ -15,7 +15,7 @@ import * as Contacts from 'expo-contacts';
 import { normalizePhone } from '../ai/patterns';
 import { imageExists } from '../storage/images';
 import { useSettingsStore } from '../store/settingsStore';
-import type { BusinessCard, CardFields } from '../types';
+import type { BusinessCard, CardFields, ExtraItem } from '../types';
 import { displayName, errorMessage, log, withScheme } from '../utils';
 
 export type PermissionOutcome = 'granted' | 'denied' | 'blocked';
@@ -42,6 +42,8 @@ export function toContactRecord(
     imageUri?: string | null;
     /** Indicatif appliqué aux numéros notés sans préfixe international. */
     defaultCountryCode?: string;
+    /** Informations lues sur la carte hors des 14 champs ; aucune n'est perdue. */
+    extras?: ExtraItem[];
   } = {},
 ): Contacts.CreateContactRecord {
   const dial = options.defaultCountryCode ?? '';
@@ -62,6 +64,8 @@ export function toContactRecord(
   pushPhone(card.whatsapp, 'WhatsApp');
 
   const emails: Contacts.NewEmail[] = card.email ? [{ label: 'work', address: card.email }] : [];
+  const lowerEq = (a: string | undefined, b: string) =>
+    (a ?? '').trim().toLowerCase() === b.trim().toLowerCase();
 
   const urls: Contacts.NewUrlAddress[] = [];
   if (card.website) urls.push({ label: 'work', url: withScheme(card.website) });
@@ -95,7 +99,37 @@ export function toContactRecord(
     });
   }
 
-  const noteParts = [card.notes.trim(), options.includeRawText?.trim()].filter(Boolean);
+  // Les informations supplémentaires rejoignent le champ natif qui leur
+  // correspond ; celles qui n'en ont pas sont écrites en notes, texte lisible.
+  const noteExtras: string[] = [];
+  (options.extras ?? []).forEach((extra) => {
+    const value = extra.value.trim();
+    if (!value) return;
+    const label = extra.label.trim() || 'Sur la carte';
+    switch (extra.kind) {
+      case 'phone':
+        pushPhone(value, label);
+        return;
+      case 'email':
+        if (!emails.some((e) => lowerEq(e.address, value))) emails.push({ label, address: value });
+        return;
+      case 'website':
+        urls.push({ label, url: withScheme(value) });
+        return;
+      case 'social':
+        urls.push({ label, url: withScheme(stripLabel(value)) });
+        socialProfiles.push({ label, service: label, url: withScheme(stripLabel(value)) });
+        return;
+      default:
+        noteExtras.push(`${label} : ${value}`);
+    }
+  });
+
+  const noteParts = [
+    card.notes.trim(),
+    noteExtras.join('\n'),
+    options.includeRawText?.trim(),
+  ].filter(Boolean);
 
   return {
     givenName: card.firstName || undefined,
@@ -118,6 +152,16 @@ export function toContactRecord(
 /** Indicatif choisi dans les réglages, appliqué par défaut à l'écriture. */
 const currentDialingCode = (): string => useSettingsStore.getState().settings.defaultCountryCode;
 
+/**
+ * Isole l'adresse dans une ligne de réseau social : la carte imprime souvent
+ * « Facebook : /ma-page » ou « f  fb.com/ma-page », et le contact attend une URL.
+ */
+function stripLabel(value: string): string {
+  const withoutLabel = value.replace(/^[^:]{0,20}:\s*/, '').trim();
+  const domain = withoutLabel.match(/[\w-]+\.[\w.-]+\/?\S*/);
+  return (domain ? domain[0] : withoutLabel).replace(/^\/+/, '');
+}
+
 export interface ContactWriteResult {
   contactId: string;
   created: boolean;
@@ -132,6 +176,7 @@ export async function createContact(
     includeRawText: options.rawTextInNotes ? card.rawText : undefined,
     imageUri: imageExists(card.imageUri) ? card.imageUri : null,
     defaultCountryCode: options.defaultCountryCode ?? currentDialingCode(),
+    extras: card.extras,
   });
   const contact = await Contacts.Contact.create(record);
   log.info('Contact créé', displayName(card), contact.id);
@@ -148,6 +193,7 @@ export async function updateContact(
     includeRawText: options.rawTextInNotes ? card.rawText : undefined,
     imageUri: imageExists(card.imageUri) ? card.imageUri : null,
     defaultCountryCode: options.defaultCountryCode ?? currentDialingCode(),
+    extras: card.extras,
   });
   const contact = new Contacts.Contact(contactId);
   await contact.update(record);
@@ -161,6 +207,7 @@ export async function openContactForm(card: BusinessCard): Promise<boolean> {
       toContactRecord(card, {
         imageUri: imageExists(card.imageUri) ? card.imageUri : null,
         defaultCountryCode: currentDialingCode(),
+        extras: card.extras,
       }),
     );
   } catch (e) {

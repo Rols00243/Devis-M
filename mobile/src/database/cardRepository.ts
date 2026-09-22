@@ -11,6 +11,7 @@ import {
   type CardFields,
   type CardSource,
   type CardStatus,
+  type ExtraItem,
   type FieldConfidence,
   type OcrEngine,
   type SyncState,
@@ -24,6 +25,7 @@ interface CardRow extends CardFields {
   imageUri: string | null;
   backImageUri: string | null;
   rawText: string;
+  extras: string;
   confidence: string;
   status: CardStatus;
   contactId: string | null;
@@ -57,6 +59,7 @@ const COLUMNS = [
   'imageUri',
   'backImageUri',
   'rawText',
+  'extras',
   'confidence',
   'status',
   'contactId',
@@ -76,6 +79,7 @@ function toCard(row: CardRow): BusinessCard {
     ...row,
     confidence: safeParse<FieldConfidence>(row.confidence, {}),
     languages: safeParse<string[]>(row.languages, []),
+    extras: safeParse<ExtraItem[]>(row.extras, []),
   };
 }
 
@@ -91,6 +95,7 @@ function toRowValues(card: BusinessCard): unknown[] {
   return COLUMNS.map((col) => {
     if (col === 'confidence') return JSON.stringify(card.confidence ?? {});
     if (col === 'languages') return JSON.stringify(card.languages ?? []);
+    if (col === 'extras') return JSON.stringify(card.extras ?? []);
     return card[col as keyof BusinessCard] ?? (col in EMPTY_FIELDS ? '' : null);
   });
 }
@@ -105,6 +110,7 @@ export function buildCard(input: {
   source?: CardSource;
   ocrEngine?: OcrEngine;
   languages?: string[];
+  extras?: ExtraItem[];
 }): BusinessCard {
   const at = nowIso();
   return {
@@ -114,6 +120,7 @@ export function buildCard(input: {
     imageUri: input.imageUri ?? null,
     backImageUri: input.backImageUri ?? null,
     rawText: input.rawText ?? '',
+    extras: input.extras ?? [],
     confidence: input.confidence ?? {},
     status: 'draft',
     contactId: null,

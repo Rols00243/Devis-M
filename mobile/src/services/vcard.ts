@@ -8,7 +8,7 @@
  * Module pur (aucun import React Native / Expo) pour rester testable.
  */
 import { normalizePhone } from '../ai/patterns';
-import type { BusinessCard, CardFields } from '../types';
+import type { BusinessCard, CardFields, ExtraItem } from '../types';
 import { displayName, withScheme } from '../utils/pure';
 
 /* --------------------------------- vCard --------------------------------- */
@@ -20,6 +20,8 @@ const escapeVcf = (s: string): string =>
 export interface VCardOptions {
   /** Indicatif appliqué aux numéros saisis sans préfixe international. */
   defaultCountryCode?: string;
+  /** Informations de la carte hors des 14 champs ; elles partent aussi. */
+  extras?: ExtraItem[];
 }
 
 /** Numéro au format international quand c'est possible, sinon tel qu'il a été lu. */
@@ -74,7 +76,33 @@ export function toVCard(
       `ADR;TYPE=WORK:;;${escapeVcf(card.address)};${escapeVcf(card.city)};;;${escapeVcf(card.country)}`,
     );
   }
-  if (card.notes) lines.push(`NOTE:${escapeVcf(card.notes)}`);
+  // Informations supplémentaires : chacune dans le champ vCard qui lui
+  // correspond, le reste rassemblé dans la note. Rien n'est laissé de côté.
+  const noteExtras: string[] = [];
+  (options.extras ?? []).forEach((extra) => {
+    const value = extra.value.trim();
+    if (!value) return;
+    const label = extra.label.trim() || 'Sur la carte';
+    switch (extra.kind) {
+      case 'phone':
+        pushTel(value, 'VOICE', label);
+        return;
+      case 'email':
+        lines.push(`EMAIL;TYPE=INTERNET:${escapeVcf(value)}`);
+        return;
+      case 'website':
+        lines.push(`URL:${escapeVcf(withScheme(value))}`);
+        return;
+      case 'social':
+        lines.push(`X-SOCIALPROFILE;TYPE=${escapeVcf(label.toLowerCase())}:${escapeVcf(value)}`);
+        return;
+      default:
+        noteExtras.push(`${label} : ${value}`);
+    }
+  });
+
+  const note = [card.notes, noteExtras.join('\n')].filter(Boolean).join('\n');
+  if (note) lines.push(`NOTE:${escapeVcf(note)}`);
   // Étiquette d'origine : permet de retrouver, dans Google Contacts ou Outlook,
   // tout ce qui vient d'une carte scannée.
   lines.push('CATEGORIES:Scan Card');
@@ -85,7 +113,9 @@ export function toVCard(
 
 /** Plusieurs fiches dans un seul fichier, format accepté par tous les imports. */
 export function toVCardBook(cards: BusinessCard[], options: VCardOptions = {}): string {
-  return cards.map((c) => toVCard(c, options)).join('\r\n');
+  // Les extras sont propres à chaque carte : ceux passés en options ne valent
+  // que pour un rendu unitaire.
+  return cards.map((c) => toVCard(c, { ...options, extras: c.extras })).join('\r\n');
 }
 
 /* ---------------------------------- CSV ---------------------------------- */
@@ -109,10 +139,16 @@ const CSV_COLUMNS: [keyof CardFields, string][] = [
 
 export function toCsv(cards: BusinessCard[]): string {
   const escape = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
-  const header = [...CSV_COLUMNS.map(([, label]) => escape(label)), escape('Scannée le')].join(';');
+  const header = [
+    ...CSV_COLUMNS.map(([, label]) => escape(label)),
+    escape('Autres informations'),
+    escape('Scannée le'),
+  ].join(';');
   const rows = cards.map((card) =>
     [
       ...CSV_COLUMNS.map(([key]) => escape(card[key])),
+      // Une colonne de plus plutôt qu'une information perdue à l'export.
+      escape((card.extras ?? []).map((e) => `${e.label} : ${e.value}`).join(' | ')),
       escape(new Date(card.createdAt).toLocaleDateString('fr-FR')),
     ].join(';'),
   );

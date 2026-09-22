@@ -20,6 +20,7 @@ import {
   LABEL_PHONE,
   LABEL_WHATSAPP,
   LEGAL_FORMS,
+  SOCIAL_NETWORKS,
   TLD_COUNTRIES,
 } from './dictionaries';
 import {
@@ -40,7 +41,14 @@ import {
   titleCase,
   toLines,
 } from './patterns';
-import { EMPTY_FIELDS, type CardFields, type FieldConfidence, type OcrLine } from '../types';
+import {
+  EMPTY_FIELDS,
+  type CardFields,
+  type ExtraItem,
+  type ExtraKind,
+  type FieldConfidence,
+  type OcrLine,
+} from '../types';
 
 export interface ExtractionInput {
   text: string;
@@ -56,6 +64,13 @@ export interface ExtractionResult {
   languages: string[];
   /** Lignes retenues, dans l'ordre : utile au débogage et à l'écran « texte brut ». */
   lines: string[];
+  /**
+   * Tout ce que la carte porte en plus des 14 champs. Une carte n'a pas de
+   * format imposé : troisième numéro, deuxième e-mail, fax, RCCM, page
+   * Facebook, slogan, seconde agence… Ces lignes sont conservées ici plutôt
+   * que perdues, et l'utilisateur les voit à la vérification.
+   */
+  extras: ExtraItem[];
 }
 
 interface Claim {
@@ -78,6 +93,29 @@ class LineLedger {
   all(): Claim[] {
     return [...this.claims.entries()].map(([index, by]) => ({ index, by }));
   }
+
+  /** Lignes qu'aucun champ n'a revendiquées : le reste de la carte. */
+  unclaimed(lines: string[]): { index: number; text: string }[] {
+    return lines
+      .map((text, index) => ({ index, text }))
+      .filter(({ index }) => !this.claims.has(index));
+  }
+}
+
+/** Accumule les informations supplémentaires sans jamais écraser les précédentes. */
+class Extras {
+  private items: ExtraItem[] = [];
+
+  add(label: string, value: string, kind: ExtraKind): void {
+    const clean = value.trim();
+    if (!clean) return;
+    if (this.items.some((i) => lower(i.value) === lower(clean))) return;
+    this.items.push({ label, value: clean, kind });
+  }
+
+  list(): ExtraItem[] {
+    return this.items;
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -88,6 +126,7 @@ export function extractFields(input: ExtractionInput): ExtractionResult {
   const lines = toLines(input.text);
   const geo = input.lines ?? [];
   const ledger = new LineLedger();
+  const extras = new Extras();
   const fields: CardFields = { ...EMPTY_FIELDS };
   const confidence: FieldConfidence = {};
 
@@ -107,16 +146,17 @@ export function extractFields(input: ExtractionInput): ExtractionResult {
     confidence.linkedin = 1;
   }
 
-  // 3. Site web.
-  const site = findWebsite(lines, ledger, corporateDomain);
-  if (site) {
-    fields.website = site.value;
-    confidence.website = site.inferred ? 0.5 : 1;
+  // 3. Sites web : le premier occupe le champ, les autres sont conservés.
+  const sites = findWebsites(lines, ledger, corporateDomain);
+  if (sites.length) {
+    fields.website = sites[0].value;
+    confidence.website = sites[0].inferred ? 0.5 : 1;
+    sites.slice(1).forEach((s) => extras.add('Autre site', s.value, 'website'));
   }
 
   // 4. Téléphones : classés par étiquette puis par numérotation.
   const phones = findPhones(lines, ledger, input.defaultCountryCode ?? '');
-  assignPhones(phones, fields, confidence);
+  assignPhones(phones, fields, confidence, extras);
 
   // 5. Fonction : sert ensuite d'ancre pour retrouver le nom (souvent juste au-dessus).
   const job = findJobTitle(lines, ledger);
@@ -179,20 +219,57 @@ export function extractFields(input: ExtractionInput): ExtractionResult {
     confidence.lastName = person.confidence;
   }
 
-  // 9. E-mails supplémentaires : conservés en notes plutôt que perdus.
-  if (emails.length > 1) {
-    fields.notes = `Autres e-mails : ${emails
-      .slice(1)
-      .map((e) => e.value)
-      .join(', ')}`;
-  }
+  // 9. E-mails supplémentaires.
+  emails.slice(1).forEach((e) => extras.add('Autre e-mail', e.value, 'email'));
+
+  // 10. Tout le reste de la carte : ce qui n'a été revendiqué par aucun champ.
+  //     C'est ce qui distingue « lire les champs connus » de « tout prendre ».
+  collectRemainingLines(lines, ledger, extras);
 
   return {
     fields,
     confidence,
     languages: detectLanguages(input.text),
     lines,
+    extras: extras.list(),
   };
+}
+
+/**
+ * Range les lignes restantes : réseaux sociaux, identifiants administratifs,
+ * adresses secondaires, et à défaut le texte tel qu'il a été lu.
+ *
+ * Aucune ligne n'est écartée pour cause de « non reconnue » : une mention que
+ * le moteur ne comprend pas reste une information de la carte.
+ */
+function collectRemainingLines(lines: string[], ledger: LineLedger, extras: Extras): void {
+  for (const { text } of ledger.unclaimed(lines)) {
+    const line = text.trim();
+    // Les fragments d'un seul caractère sont du bruit d'OCR, pas de l'information.
+    if (line.length < 2) continue;
+
+    const social = SOCIAL_NETWORKS.find((n) => n.pattern.test(line));
+    if (social) {
+      extras.add(social.name, line, 'social');
+      continue;
+    }
+    if (ADMIN_IDS.test(line)) {
+      extras.add(adminLabel(line), line, 'id');
+      continue;
+    }
+    if (ADDRESS_HINTS.test(line)) {
+      extras.add('Autre adresse', line, 'address');
+      continue;
+    }
+    extras.add('Sur la carte', line, 'text');
+  }
+}
+
+/** Libellé d'un identifiant administratif, tiré du mot-clé présent sur la ligne. */
+function adminLabel(line: string): string {
+  const match = line.match(ADMIN_IDS);
+  if (!match) return 'Référence';
+  return match[0].toUpperCase().replace(/\./g, '').trim();
 }
 
 /* ------------------------------------------------------------------ */
@@ -226,11 +303,17 @@ function findLinkedIn(lines: string[], ledger: LineLedger): string | null {
   return null;
 }
 
-function findWebsite(
+/**
+ * Tous les sites imprimés sur la carte, dans l'ordre de lecture. Une entreprise
+ * en affiche parfois deux (site institutionnel et boutique) : le premier prend
+ * le champ, les autres sont conservés en informations supplémentaires.
+ */
+function findWebsites(
   lines: string[],
   ledger: LineLedger,
   corporateDomain: string,
-): { value: string; inferred: boolean } | null {
+): { value: string; inferred: boolean }[] {
+  const found: { value: string; inferred: boolean }[] = [];
   for (let i = 0; i < lines.length; i++) {
     if (ledger.isClaimed(i)) continue;
     const line = lines[i];
@@ -238,16 +321,20 @@ function findWebsite(
       EMAIL_RE.lastIndex = 0;
       continue;
     }
+    // Un réseau social n'est pas le site de l'entreprise : il a son propre rangement.
+    if (SOCIAL_NETWORKS.some((n) => n.pattern.test(line))) continue;
     const urls = line.match(URL_RE);
     const candidate = urls ? urls[0] : (line.match(BARE_DOMAIN_RE) || [])[0];
     if (!candidate) continue;
     const url = cleanUrl(candidate);
     if (url.length < 5 || /linkedin\./i.test(url)) continue;
+    if (found.some((f) => lower(f.value) === lower(url))) continue;
     ledger.claim(i, 'website');
-    return { value: url, inferred: false };
+    found.push({ value: url, inferred: false });
   }
   // Pas de site imprimé : le domaine professionnel de l'e-mail est une bonne approximation.
-  return corporateDomain ? { value: `www.${corporateDomain}`, inferred: true } : null;
+  if (!found.length && corporateDomain) found.push({ value: `www.${corporateDomain}`, inferred: true });
+  return found;
 }
 
 /* ------------------------------------------------------------------ */
@@ -320,6 +407,7 @@ function assignPhones(
   phones: FoundPhone[],
   fields: CardFields,
   confidence: FieldConfidence,
+  extras: Extras,
 ): void {
   const whatsapp = phones.find((p) => p.kind === 'whatsapp');
   const mobiles = phones.filter((p) => p.kind === 'mobile');
@@ -327,9 +415,12 @@ function assignPhones(
   const faxes = phones.filter((p) => p.kind === 'fax');
 
   // Le téléphone principal est le mobile s'il existe : c'est celui qu'on appelle.
-  const ordered = [...mobiles, ...landlines, ...(whatsapp ? [whatsapp] : []), ...faxes];
-  const primary = ordered[0];
-  const secondary = ordered[1];
+  // Un fax n'entre jamais dans ce classement, même s'il est le seul numéro de
+  // la carte : on n'appelle pas un télécopieur. Il est conservé en extras.
+  const callable = [...mobiles, ...landlines, ...(whatsapp ? [whatsapp] : [])];
+  const ordered = [...callable, ...faxes];
+  const primary = callable[0];
+  const secondary = callable[1];
 
   if (primary) {
     fields.phone = primary.display;
@@ -350,10 +441,20 @@ function assignPhones(
     confidence.whatsapp = 0.4;
   }
 
-  if (faxes.length && !fields.notes) {
-    fields.notes = `Fax : ${faxes[0].display}`;
-  }
+  // Tous les autres numéros sont conservés : une carte porte souvent trois
+  // lignes (direct, standard, fax) et aucune ne doit disparaître.
+  const kept = [primary, secondary, whatsapp].filter(Boolean) as FoundPhone[];
+  ordered
+    .filter((p) => !kept.some((k) => samePhone(k.e164, p.e164)))
+    .forEach((p) => extras.add(PHONE_LABELS[p.kind], p.display, 'phone'));
 }
+
+const PHONE_LABELS: Record<PhoneKind, string> = {
+  mobile: 'Autre mobile',
+  phone: 'Autre téléphone',
+  fax: 'Fax',
+  whatsapp: 'Autre WhatsApp',
+};
 
 /* ------------------------------------------------------------------ */
 /* Fonction / entreprise                                               */

@@ -10,7 +10,14 @@
  * Cette voie est facultative : sans configuration cloud, l'application
  * fonctionne entièrement hors ligne avec l'OCR local.
  */
-import { EMPTY_FIELDS, type CardFields, type FieldConfidence, type OcrResult } from '../types';
+import {
+  EMPTY_FIELDS,
+  type CardFields,
+  type ExtraItem,
+  type ExtraKind,
+  type FieldConfidence,
+  type OcrResult,
+} from '../types';
 import { errorMessage, log } from '../utils';
 import { getSupabase, isCloudConfigured } from '../services/supabase';
 import { prepareForCloud } from './imagePipeline';
@@ -19,6 +26,8 @@ import { prepareForCloud } from './imagePipeline';
 interface CloudExtractionResponse {
   fields: Partial<CardFields>;
   confidence?: FieldConfidence;
+  /** Tout ce que le modèle a lu et qui n'entre dans aucun des 14 champs. */
+  extras?: { label?: unknown; value?: unknown; kind?: unknown }[];
   rawText?: string;
   languages?: string[];
 }
@@ -68,8 +77,28 @@ export async function extractInCloud(imageUri: string): Promise<OcrResult> {
     lines: (data.rawText ?? '').split('\n').map((text) => ({ text })),
     fields: sanitizeFields(data.fields),
     confidence: sanitizeConfidence(data.confidence),
+    extras: sanitizeExtras(data.extras),
     languages: Array.isArray(data.languages) ? data.languages.slice(0, 5).map(String) : [],
   };
+}
+
+const EXTRA_KINDS: ExtraKind[] = ['phone', 'email', 'website', 'social', 'id', 'address', 'text'];
+
+/**
+ * Les extras viennent d'un service externe : on ne recopie que des chaînes,
+ * bornées en longueur et en nombre, avec une nature prise dans la liste connue.
+ */
+function sanitizeExtras(raw: CloudExtractionResponse['extras']): ExtraItem[] {
+  if (!Array.isArray(raw)) return [];
+  const out: ExtraItem[] = [];
+  raw.slice(0, 40).forEach((item) => {
+    const value = typeof item?.value === 'string' ? item.value.trim().slice(0, 500) : '';
+    if (!value) return;
+    const label = typeof item?.label === 'string' ? item.label.trim().slice(0, 60) : '';
+    const kind = EXTRA_KINDS.find((k) => k === item?.kind) ?? 'text';
+    out.push({ label: label || 'Sur la carte', value, kind });
+  });
+  return out;
 }
 
 function sanitizeFields(raw: Partial<CardFields>): Partial<CardFields> {

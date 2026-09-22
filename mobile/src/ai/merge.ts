@@ -6,11 +6,13 @@
  * où l'extraction locale ne voit qu'un texte à plat. Un champ vide ne remplace
  * jamais un champ rempli.
  */
-import { EMPTY_FIELDS, type CardFields, type FieldConfidence } from '../types';
+import { EMPTY_FIELDS, type CardFields, type ExtraItem, type FieldConfidence } from '../types';
 
 export interface Extraction {
   fields: CardFields;
   confidence: FieldConfidence;
+  /** Informations hors des 14 champs ; les deux moteurs peuvent en trouver. */
+  extras?: ExtraItem[];
 }
 
 export function mergeExtractions(local: Extraction, cloud: Extraction): Extraction {
@@ -34,8 +36,41 @@ export function mergeExtractions(local: Extraction, cloud: Extraction): Extracti
     }
   });
 
-  return { fields, confidence };
+  return { fields, confidence, extras: mergeExtras(local.extras, cloud.extras, fields) };
 }
+
+/**
+ * Réunit les informations supplémentaires des deux moteurs.
+ *
+ * Deux filtres seulement : les doublons entre eux, et les valeurs déjà placées
+ * dans un champ du formulaire — les répéter en « autres informations » ne
+ * servirait qu'à alourdir la fiche. Tout le reste est conservé.
+ */
+export function mergeExtras(
+  local: ExtraItem[] = [],
+  cloud: ExtraItem[] = [],
+  fields: CardFields = EMPTY_FIELDS,
+): ExtraItem[] {
+  const placed = new Set(
+    Object.values(fields)
+      .map((v) => normalizeForCompare(v))
+      .filter(Boolean),
+  );
+  const out: ExtraItem[] = [];
+  [...cloud, ...local].forEach((item) => {
+    const value = (item?.value ?? '').trim();
+    if (!value) return;
+    const key = normalizeForCompare(value);
+    if (placed.has(key)) return;
+    if (out.some((o) => normalizeForCompare(o.value) === key)) return;
+    out.push({ label: item.label?.trim() || 'Sur la carte', value, kind: item.kind ?? 'text' });
+  });
+  return out;
+}
+
+/** Comparaison indulgente : casse, espaces et ponctuation de numéro ignorés. */
+const normalizeForCompare = (v: string): string =>
+  (v ?? '').toLowerCase().replace(/[\s.\-()]/g, '');
 
 /** Champs sous le seuil : ceux que l'écran de vérification met en évidence. */
 export function lowConfidenceFields(

@@ -31,7 +31,23 @@ const CardSchema = z.object({
   city: z.string().describe('Ville'),
   country: z.string().describe('Pays en toutes lettres, en français'),
   linkedin: z.string().describe('Profil LinkedIn, ex. linkedin.com/in/identifiant'),
-  notes: z.string().describe('Mentions utiles non classées ailleurs (fax, slogan, second e-mail)'),
+  notes: z.string().describe('Notes libres sur le contact ; laisser vide si rien à signaler'),
+  extras: z
+    .array(
+      z.object({
+        label: z.string().describe('Libellé court, ex. "Fax", "RCCM", "Facebook", "Agence"'),
+        value: z.string().describe('Valeur telle qu’imprimée sur la carte'),
+        kind: z
+          .enum(['phone', 'email', 'website', 'social', 'id', 'address', 'text'])
+          .describe('Nature de l’information, qui décide de sa place dans le contact'),
+      }),
+    )
+    .describe(
+      'TOUT ce que porte la carte et qui n’entre pas dans les champs ci-dessus : ' +
+        'troisième numéro, fax, deuxième e-mail, second site, réseaux sociaux, RCCM, ' +
+        'TVA, ID. NAT, seconde adresse, slogan, horaires, mention manuscrite. ' +
+        'Ne rien omettre : ce qui n’est ni un champ ni un extra est perdu.',
+    ),
   rawText: z.string().describe('Tout le texte lu sur la carte, ligne par ligne'),
   languages: z.array(z.string()).describe('Codes ISO 639-1 des langues présentes, ex. ["fr","ar"]'),
   confidence: z
@@ -58,7 +74,12 @@ Règles :
 - Le nom de famille est souvent imprimé en capitales ; restitue-le en casse normale.
 - Les cartes peuvent être bilingues (français, anglais, arabe). Extrais les informations
   dans la langue latine quand les deux sont présentes, et signale les langues vues.
-- Ignore les slogans, logos et mentions décoratives, sauf à les placer dans "notes".
+- Ne jette rien. Toute mention lisible qui n'entre pas dans un champ va dans "extras",
+  avec un libellé et sa nature : autres numéros, fax, deuxième e-mail, réseaux sociaux,
+  identifiants légaux (RCCM, TVA, ID. NAT), seconde adresse, agence, slogan, horaires.
+  Une carte peut porter n'importe quoi ; les champs sont en nombre fixe, pas "extras".
+- "rawText" contient l'intégralité du texte lu, y compris ce que tu as déjà classé :
+  il sert de filet de sécurité si un élément a été mal rangé.
 - "confidence" reflète ta certitude réelle : 1 pour un champ lu sans ambiguïté,
   0.5 pour une déduction, 0 pour un champ vide.`;
 
@@ -138,8 +159,8 @@ Deno.serve(async (req: Request) => {
     const parsed = response.parsed_output;
     if (!parsed) return json({ error: 'Extraction illisible.' }, 502);
 
-    const { rawText, languages, confidence, ...fields } = parsed;
-    return json({ fields, confidence, rawText, languages });
+    const { rawText, languages, confidence, extras, ...fields } = parsed;
+    return json({ fields, confidence, extras, rawText, languages });
   } catch (e) {
     // Les erreurs du fournisseur ne sont pas renvoyées telles quelles au client.
     console.error('extract-card', e instanceof Error ? e.message : e);

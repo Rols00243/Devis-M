@@ -33,6 +33,8 @@ create table if not exists public.business_cards (
   notes            text not null default '',
 
   raw_text         text not null default '',
+  -- Tout ce que la carte porte au-delà des 14 champs : [{label, value, kind}].
+  extras           jsonb not null default '[]'::jsonb,
   confidence       jsonb not null default '{}'::jsonb,
   status           text not null default 'validated',
   contact_id       text,
@@ -149,3 +151,6 @@ begin
   delete from public.business_cards where owner_id = auth.uid();
 end;
 $$;
+
+-- Mise à niveau d'une base créée avant la colonne « extras ».
+alter table public.cards add column if not exists extras jsonb not null default '[]'::jsonb;

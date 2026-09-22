@@ -15,6 +15,7 @@ import { createContact, ensureContactsPermission, updateContact } from '../conta
 import { isAccountHandoffAvailable, sendToSyncedAccount } from '../contacts/destinations';
 import { findDuplicates, reasonLabel } from '../contacts/duplicates';
 import type { RootStackParamList } from '../navigation/types';
+import { mergeExtras } from '../ai/merge';
 import { scanCard } from '../ocr';
 import { captureCardImage } from '../ocr/captureSource';
 import { prepareForArchive } from '../ocr/imagePipeline';
@@ -29,6 +30,7 @@ import {
   type CardFieldKey,
   type CardFields,
   type DuplicateMatch,
+  type ExtraItem,
 } from '../types';
 import { displayName, errorMessage, log } from '../utils';
 
@@ -52,6 +54,14 @@ const KEYBOARD: Partial<Record<CardFieldKey, 'default' | 'phone-pad' | 'email-ad
   linkedin: 'url',
 };
 
+/** Clavier adapté à la nature d'une information supplémentaire. */
+const EXTRA_KEYBOARD: Partial<Record<ExtraItem['kind'], 'default' | 'phone-pad' | 'email-address' | 'url'>> = {
+  phone: 'phone-pad',
+  email: 'email-address',
+  website: 'url',
+  social: 'url',
+};
+
 export default function ReviewScreen({ navigation, route }: Props) {
   const { payload, cardId } = route.params;
   const { settings } = useSettingsStore();
@@ -62,6 +72,7 @@ export default function ReviewScreen({ navigation, route }: Props) {
   const [duplicates, setDuplicates] = useState<DuplicateMatch[]>([]);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(Boolean(cardId));
+  const [extras, setExtras] = useState<ExtraItem[]>(payload?.extras ?? []);
   const [backImageUri, setBackImageUri] = useState<string | null>(payload?.backImageUri ?? null);
   const [scanningBack, setScanningBack] = useState(false);
 
@@ -78,6 +89,7 @@ export default function ReviewScreen({ navigation, route }: Props) {
           rawText: payload?.rawText,
           imageUri: payload?.imageUri ?? null,
           backImageUri: payload?.backImageUri ?? null,
+          extras: payload?.extras ?? [],
           source: 'camera',
           ocrEngine: payload?.engine ?? 'manual',
           languages: payload?.languages,
@@ -89,6 +101,7 @@ export default function ReviewScreen({ navigation, route }: Props) {
       if (existing) {
         setCard(existing);
         setFields(pickFields(existing));
+        setExtras(existing.extras ?? []);
         setBackImageUri(existing.backImageUri);
       }
       setLoading(false);
@@ -122,6 +135,18 @@ export default function ReviewScreen({ navigation, route }: Props) {
 
   const setField = useCallback((key: CardFieldKey, value: string) => {
     setFields((prev) => ({ ...prev, [key]: value }));
+  }, []);
+
+  const setExtraValue = useCallback((index: number, value: string) => {
+    setExtras((prev) => prev.map((item, i) => (i === index ? { ...item, value } : item)));
+  }, []);
+
+  const removeExtra = useCallback((index: number) => {
+    setExtras((prev) => prev.filter((_, i) => i !== index));
+  }, []);
+
+  const addExtra = useCallback(() => {
+    setExtras((prev) => [...prev, { label: 'Note', value: '', kind: 'text' }]);
   }, []);
 
   /*
@@ -158,9 +183,22 @@ export default function ReviewScreen({ navigation, route }: Props) {
         return next;
       });
 
+      // Le dos porte souvent une adresse ou des numéros absents du recto :
+      // ses informations supplémentaires sont ajoutées, jamais substituées.
+      let addedExtras = 0;
+      setExtras((prev) => {
+        const merged = mergeExtras(prev, report.extras ?? [], report.fields);
+        addedExtras = merged.length - prev.length;
+        return merged;
+      });
+
+      const parts = [
+        added ? `${added} champ(s) complété(s)` : '',
+        addedExtras > 0 ? `${addedExtras} information(s) supplémentaire(s)` : '',
+      ].filter(Boolean);
       Alert.alert(
         'Verso ajouté',
-        added ? `${added} champ(s) complété(s) depuis le verso.` : 'Aucune information nouvelle au dos.',
+        parts.length ? `${parts.join(' et ')} depuis le verso.` : 'Aucune information nouvelle au dos.',
       );
     } catch (e) {
       Alert.alert('Lecture du verso impossible', errorMessage(e));
@@ -177,13 +215,14 @@ export default function ReviewScreen({ navigation, route }: Props) {
       const next: BusinessCard = {
         ...card,
         ...fields,
+        extras: extras.filter((e) => e.value.trim()),
         backImageUri,
         status,
         contactId: contactId ?? card.contactId,
       };
       return cardId ? patch(cardId, next) : upsert(next);
     },
-    [backImageUri, card, cardId, fields, patch, upsert],
+    [backImageUri, card, cardId, extras, fields, patch, upsert],
   );
 
   const saveOnly = useCallback(async () => {
@@ -382,6 +421,56 @@ export default function ReviewScreen({ navigation, route }: Props) {
         </View>
       ))}
 
+      <View style={styles.group}>
+        <SectionTitle>Autres informations lues sur la carte</SectionTitle>
+        {extras.length ? (
+          <>
+            <Text style={styles.extraHint}>
+              Tout ce que la carte porte en plus des champs ci-dessus. Ces lignes suivent le contact
+              dans le répertoire : les numéros et e-mails dans leurs champs, le reste dans les notes.
+            </Text>
+            {extras.map((item, index) => (
+              <View key={`${item.label}-${index}`} style={styles.extraRow}>
+                <View style={styles.extraField}>
+                  <Field
+                    label={item.label}
+                    value={item.value}
+                    onChangeText={(v) => setExtraValue(index, v)}
+                    keyboardType={EXTRA_KEYBOARD[item.kind] ?? 'default'}
+                    autoCapitalize={item.kind === 'text' ? 'sentences' : 'none'}
+                    multiline={item.kind === 'text' || item.kind === 'address'}
+                  />
+                </View>
+                <Text
+                  accessibilityRole="button"
+                  accessibilityLabel={`Supprimer ${item.label}`}
+                  onPress={() => removeExtra(index)}
+                  style={styles.extraRemove}>
+                  ✕
+                </Text>
+              </View>
+            ))}
+          </>
+        ) : (
+          <Text style={styles.extraHint}>
+            Rien d'autre n'a été lu sur cette carte. Si une mention manque, ajoutez-la ici : elle
+            sera enregistrée avec le contact.
+          </Text>
+        )}
+        <AppButton label="Ajouter une information" icon="＋" variant="ghost" onPress={addExtra} />
+      </View>
+
+      {card.rawText ? (
+        <View style={styles.group}>
+          <SectionTitle>Texte lu sur la carte</SectionTitle>
+          <Card>
+            <Text style={styles.rawText} selectable>
+              {card.rawText}
+            </Text>
+          </Card>
+        </View>
+      ) : null}
+
       <View style={styles.actions}>
         <AppButton
           label={backImageUri ? 'Rephotographier le verso' : 'Ajouter le verso de la carte'}
@@ -444,5 +533,16 @@ const styles = StyleSheet.create({
   dupLine: { ...typography.caption, color: colors.text },
   dupHint: { ...typography.caption, marginTop: spacing.xs },
   group: { gap: spacing.md },
+  extraHint: { ...typography.caption, lineHeight: 18 },
+  extraRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
+  extraField: { flex: 1 },
+  extraRemove: {
+    fontSize: 18,
+    color: colors.textFaint,
+    // Zone tactile confortable, alignée sur le champ voisin.
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.lg,
+  },
+  rawText: { ...typography.caption, lineHeight: 19, color: colors.textMuted },
   actions: { gap: spacing.sm, marginTop: spacing.lg },
 });

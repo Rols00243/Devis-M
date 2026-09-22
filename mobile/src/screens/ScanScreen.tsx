@@ -81,6 +81,7 @@ export default function ScanScreen({ navigation, route }: Props) {
           payload: {
             fields: report.fields,
             confidence: report.confidence,
+            extras: report.extras,
             rawText: report.rawText,
             engine: report.engine,
             languages: report.languages,

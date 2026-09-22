@@ -70,6 +70,12 @@ const MIGRATIONS: ((db: SQLite.SQLiteDatabase) => Promise<void>)[] = [
       CREATE INDEX IF NOT EXISTS idx_queue_card ON sync_queue (cardId);
     `);
   },
+
+  // v2 — « extras » : tout ce que la carte porte en plus des 14 champs
+  //      (troisième numéro, deuxième e-mail, fax, RCCM, réseaux sociaux…).
+  async (db) => {
+    await db.execAsync(`ALTER TABLE cards ADD COLUMN extras TEXT NOT NULL DEFAULT '[]';`);
+  },
 ];
 
 /** Ouvre la base et applique les migrations manquantes. */

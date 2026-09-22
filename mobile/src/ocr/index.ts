@@ -76,14 +76,19 @@ export async function scanCard(options: ScanOptions): Promise<ScanReport> {
       const cloudFields: CardFields = { ...EMPTY_FIELDS, ...(cloud.fields ?? {}) };
       const merged = mergeExtractions(
         localResult
-          ? { fields: localResult.fields, confidence: localResult.confidence }
-          : { fields: EMPTY_FIELDS, confidence: {} },
-        { fields: cloudFields, confidence: cloud.confidence ?? {} },
+          ? {
+              fields: localResult.fields,
+              confidence: localResult.confidence,
+              extras: localResult.extras,
+            }
+          : { fields: EMPTY_FIELDS, confidence: {}, extras: [] },
+        { fields: cloudFields, confidence: cloud.confidence ?? {}, extras: cloud.extras ?? [] },
       );
       onStage?.('done');
       return {
         fields: merged.fields,
         confidence: merged.confidence,
+        extras: merged.extras ?? [],
         rawText: cloud.text || localText,
         engine: 'cloud',
         languages: cloud.languages?.length ? cloud.languages : (localResult?.languages ?? []),
@@ -103,6 +108,7 @@ export async function scanCard(options: ScanOptions): Promise<ScanReport> {
     return {
       fields: { ...EMPTY_FIELDS },
       confidence: {},
+      extras: [],
       rawText: localText,
       engine: 'manual',
       languages: [],
@@ -118,6 +124,7 @@ export async function scanCard(options: ScanOptions): Promise<ScanReport> {
   return {
     fields: localResult.fields,
     confidence: localResult.confidence,
+    extras: localResult.extras,
     rawText: localText,
     engine: 'mlkit',
     languages: localResult.languages,
@@ -133,6 +140,7 @@ export function reExtractFromText(rawText: string, defaultCountryCode?: string):
   return {
     fields: result.fields,
     confidence: result.confidence,
+    extras: result.extras,
     rawText,
     engine: 'mlkit',
     languages: result.languages,
