@@ -6,7 +6,16 @@ Analysis** : créer des nœuds et des barres, lancer le calcul, lire les efforts
 > Windows uniquement : Robot s'automatise via son API COM (RobotOM), accessible seulement
 > sur la machine où il est installé et sous licence.
 
-## Installation
+## Installation automatique (recommandé)
+
+Double-cliquez sur **`install.bat`**. Le script crée l'environnement Python, installe
+les dépendances et déclare le serveur `robot` dans Claude Desktop (les autres serveurs
+sont conservés, une copie `.bak` de la config est faite). Quittez ensuite complètement
+Claude Desktop et rouvrez-le.
+
+Prérequis : Python 3.10+ installé (case « Add python.exe to PATH » cochée).
+
+## Installation manuelle
 
 ```
 cd integrations\robot-mcp
