@@ -46,7 +46,9 @@ src/
   partir des dimensions + armatures (barres principales + cadres/étriers).
 - **`tableRows()`** : source unique de vérité du tableau ; transforme `shapes` en lignes.
 - **Import** : `routeFile()` (dispatch par extension), `loadPDF`, `loadImage`,
-  `renderDXF()` (parseur DXF maison : LINE/LWPOLYLINE/POLYLINE/CIRCLE/ARC + $INSUNITS).
+  `renderDXF()` (parseur DXF maison : LINE/LWPOLYLINE/POLYLINE/CIRCLE/ARC + $INSUNITS),
+  `importSchedule()` (nomenclature Revit exportée en .txt/.csv → mesures sans géométrie
+  avec `manualQty` ; volumes béton → ouvrage `BETON`, sinon ouvrage existant ou créé).
 - **Analyse auto** : bouton `#btnAuto` → lit `state.autoEntities` (géométrie DXF ou plan
   d'exemple) → propose d'affecter un ouvrage aux surfaces / longueurs → génère les mesures.
 - **Quantitatif matériaux** : `materialsAgg()` agrège la composition (`comp`) de chaque
