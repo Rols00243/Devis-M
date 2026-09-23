@@ -34,6 +34,10 @@ Pièges déjà rencontrés sur ce SDK :
   des 14 champs part dans `extras` (`ExtraItem[]`), s'affiche à la vérification
   et suit le contact jusque dans le répertoire. Un nouveau cas de carte se
   traite en enrichissant `extras`, jamais en ignorant une ligne.
+- **La lecture prime sur la vitesse.** L'image part à l'OCR en deux tailles
+  (`prepareForOcr` / `prepareForOcrFine`) et faiblement compressée : les petits
+  caractères portent les numéros. Ne pas réduire ces tailles pour gagner du
+  temps sans mesurer ce qu'on perd.
 - **Une seule couche écrit en base** : `src/database/cardRepository.ts`.
 - **Aucune clé secrète dans l'application.** La clé du modèle d'IA vit dans la
   fonction Edge Supabase. L'app ne connaît que l'URL et la clé anon.

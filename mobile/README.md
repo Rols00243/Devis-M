@@ -145,6 +145,14 @@ tests/           tests du moteur d'extraction (node:test)
 réplication. Une carte scannée sans réseau est immédiatement utilisable, et
 repart en synchronisation dès le retour de la connexion.
 
+**Deux passes de lecture.** Sur une carte, la plus petite ligne est presque
+toujours un numéro de téléphone. Le détecteur de ML Kit a une échelle de
+prédilection : l'image est donc lue deux fois, en vue d'ensemble puis agrandie,
+et les lignes des deux passes sont réunies. La seconde passe ne peut qu'ajouter
+du texte. C'est aussi pourquoi la capture vise la qualité maximale, attend une
+immobilité franche — un léger flou efface les petits caractères — et invite à
+remplir le cadre avec la carte.
+
 **OCR à deux étages.** ML Kit tourne sur l'appareil : instantané, gratuit, sans
 réseau — mais son modèle latin ne lit pas l'arabe. L'IA cloud n'est appelée que
 lorsqu'elle apporte quelque chose (lecture pauvre, écriture arabe, champs
@@ -200,6 +208,8 @@ Quelques comportements couverts par les tests :
 
 - `j.dupont@abc.com` tranche l'ordre prénom / nom sur une ligne « DUPONT Jean » ;
 - un numéro de RCCM, de TVA ou d'ID. NAT n'est jamais pris pour un téléphone ;
+- « Tél : 081 000 0000 / 099 111 1111 » donne bien deux numéros, pas zéro ;
+- « +243 (0)81 … » perd le zéro national au lieu de l'inclure dans le numéro ;
 - le mobile devient le téléphone principal et alimente WhatsApp ;
 - `+243 8l 0OO 12 34` est corrigé en `+243810001234` ;
 - une adresse Gmail ne devient pas un nom d'entreprise ;
@@ -208,7 +218,7 @@ Quelques comportements couverts par les tests :
 - un troisième numéro, un second e-mail, un RCCM ou un slogan sont conservés.
 
 ```bash
-npm test     # 41 tests
+npm test     # 47 tests
 ```
 
 ---

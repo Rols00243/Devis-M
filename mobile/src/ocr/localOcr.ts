@@ -8,10 +8,16 @@
  *
  * Le module est chargé paresseusement : l'application reste démarrable dans
  * Expo Go, où le module natif est absent, en signalant clairement le cas.
+ *
+ * La lecture se fait en **deux passes**, à deux tailles d'image. Le détecteur
+ * de ML Kit a une échelle de prédilection : une vue d'ensemble attrape les
+ * grands caractères et la structure, une vue agrandie fait sortir les petits —
+ * typiquement les numéros de téléphone, souvent la plus petite ligne de la
+ * carte. Les résultats sont réunis, ce qui ne peut qu'ajouter du texte.
  */
 import type { OcrLine, OcrResult } from '../types';
-import { log } from '../utils';
-import { prepareForOcr } from './imagePipeline';
+import { errorMessage, log } from '../utils';
+import { prepareForOcr, prepareForOcrFine } from './imagePipeline';
 
 interface MlKitFrame {
   top: number;
@@ -80,33 +86,89 @@ export async function recognizeLocally(imageUri: string): Promise<OcrResult> {
   const mlkit = loadModule();
   if (!mlkit) throw new LocalOcrUnavailableError();
 
-  const prepared = await prepareForOcr(imageUri);
-  const result = await mlkit.recognize(prepared.uri);
-
-  const lines: OcrLine[] = [];
+  const collected: OcrLine[] = [];
   const languages = new Set<string>();
+  let plainText = '';
+  let firstError: unknown = null;
 
+  for (const prepare of [prepareForOcr, prepareForOcrFine]) {
+    try {
+      const prepared = await prepare(imageUri);
+      const result = await mlkit.recognize(prepared.uri);
+      if (!plainText) plainText = result.text;
+      collectBlocks(result, prepared.height, collected, languages);
+    } catch (e) {
+      // Une passe peut échouer sur un appareil à mémoire limitée : l'autre suffit.
+      if (!firstError) firstError = e;
+      log.warn('Passe de reconnaissance ignorée', errorMessage(e));
+    }
+  }
+
+  if (!collected.length && !plainText) throw firstError ?? new Error('Aucun texte reconnu.');
+
+  const lines = mergeLines(collected);
+  return {
+    text: lines.map((l) => l.text).join('\n') || plainText,
+    engine: 'mlkit',
+    lines,
+    languages: [...languages],
+  };
+}
+
+/**
+ * Relève les lignes d'un passage. Les positions sont ramenées à une fraction de
+ * la hauteur de l'image : les deux passes n'ont pas la même échelle en pixels,
+ * et seule une mesure relative permet de les comparer et de les trier ensemble.
+ */
+function collectBlocks(
+  result: MlKitResult,
+  imageHeight: number,
+  into: OcrLine[],
+  languages: Set<string>,
+): void {
+  const scale = imageHeight > 0 ? 1 / imageHeight : 0;
   result.blocks.forEach((block) => {
     block.recognizedLanguages?.forEach((l) => l.languageCode && languages.add(l.languageCode));
     block.lines.forEach((line) => {
-      lines.push({
-        text: line.text,
-        y: line.frame?.top,
-        height: line.frame?.height,
+      const text = line.text.trim();
+      if (!text) return;
+      into.push({
+        text,
+        y: scale && line.frame ? line.frame.top * scale : undefined,
+        height: scale && line.frame ? line.frame.height * scale : undefined,
       });
     });
   });
+}
 
-  // ML Kit renvoie les blocs dans l'ordre de lecture ; on retrie par position
-  // verticale pour les cartes en colonnes, où l'ordre des blocs mélange les lignes.
-  const ordered = lines.every((l) => typeof l.y === 'number')
-    ? [...lines].sort((a, b) => (a.y ?? 0) - (b.y ?? 0))
-    : lines;
+/** Clé de comparaison : deux lectures d'une même ligne ne diffèrent que par la mise en forme. */
+const lineKey = (text: string): string => text.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
 
-  return {
-    text: ordered.map((l) => l.text).join('\n') || result.text,
-    engine: 'mlkit',
-    lines: ordered,
-    languages: [...languages],
-  };
+/**
+ * Réunit les lignes des deux passes, sans doublon.
+ *
+ * Une ligne déjà couverte par une autre — même texte, ou texte contenu dans une
+ * lecture plus complète — est écartée ; la version la plus longue est gardée,
+ * c'est celle qui porte le plus d'information (« Tél : 081 000 0000 » plutôt
+ * que « 081 000 0000 »). Le tri final suit la position sur la carte.
+ */
+function mergeLines(lines: OcrLine[]): OcrLine[] {
+  const kept: { line: OcrLine; key: string }[] = [];
+
+  // Du plus long au plus court : la lecture la plus riche s'installe en premier.
+  [...lines]
+    .sort((a, b) => lineKey(b.text).length - lineKey(a.text).length)
+    .forEach((line) => {
+      const key = lineKey(line.text);
+      if (!key) return;
+      if (kept.some((k) => k.key.includes(key))) return;
+      kept.push({ line, key });
+    });
+
+  const ordered = kept.map((k) => k.line);
+  // ML Kit renvoie les blocs dans son ordre de lecture ; on retrie par position
+  // verticale pour les cartes en colonnes, où l'ordre des blocs mélange tout.
+  return ordered.every((l) => typeof l.y === 'number')
+    ? ordered.sort((a, b) => (a.y ?? 0) - (b.y ?? 0))
+    : ordered;
 }

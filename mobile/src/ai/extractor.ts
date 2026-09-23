@@ -38,6 +38,7 @@ import {
   lower,
   normalizePhone,
   samePhone,
+  splitPhoneCandidates,
   titleCase,
   toLines,
 } from './patterns';
@@ -124,7 +125,7 @@ class Extras {
 
 export function extractFields(input: ExtractionInput): ExtractionResult {
   const lines = toLines(input.text);
-  const geo = input.lines ?? [];
+  const geo = alignGeometry(lines, input.lines ?? []);
   const ledger = new LineLedger();
   const extras = new Extras();
   const fields: CardFields = { ...EMPTY_FIELDS };
@@ -272,6 +273,29 @@ function adminLabel(line: string): string {
   return match[0].toUpperCase().replace(/\./g, '').trim();
 }
 
+/**
+ * Aligne la géométrie OCR sur les lignes retenues.
+ *
+ * `toLines` nettoie et écarte les fragments d'un seul caractère : les indices
+ * ne correspondent donc plus à ceux des lignes brutes. Sans ce recalage, la
+ * hauteur d'une ligne est attribuée à une autre, et le nom est cherché au
+ * mauvais endroit.
+ */
+function alignGeometry(lines: string[], geo: OcrLine[]): OcrLine[] {
+  if (!geo.length) return [];
+  const keys = geo.map((g) => toLines(g.text)[0] ?? '');
+  let cursor = 0;
+  return lines.map((line) => {
+    for (let i = cursor; i < keys.length; i++) {
+      if (keys[i] === line) {
+        cursor = i + 1;
+        return geo[i];
+      }
+    }
+    return { text: line };
+  });
+}
+
 /* ------------------------------------------------------------------ */
 /* E-mail / web / LinkedIn                                             */
 /* ------------------------------------------------------------------ */
@@ -366,24 +390,28 @@ function findPhones(lines: string[], ledger: LineLedger, defaultCode: string): F
     if (!candidates) return;
 
     candidates.forEach((candidate) => {
-      const repaired = fixDigits(candidate.replace(/[()/]/g, ' ')).trim();
-      if (!isPlausiblePhone(repaired)) return;
+      // Une même ligne porte souvent deux numéros : on les sépare avant de
+      // valider, sinon la suite entière est trop longue et les deux sont perdus.
+      splitPhoneCandidates(fixDigits(candidate)).forEach((piece) => {
+        const repaired = piece.replace(/[()]/g, ' ').trim();
+        if (!isPlausiblePhone(repaired)) return;
 
-      const parts = normalizePhone(repaired, defaultCode);
-      let kind: PhoneKind = 'phone';
-      let labelled = true;
-      if (LABEL_WHATSAPP.test(line)) kind = 'whatsapp';
-      else if (LABEL_FAX.test(line)) kind = 'fax';
-      else if (LABEL_MOBILE.test(line)) kind = 'mobile';
-      else if (LABEL_PHONE.test(line)) kind = 'phone';
-      else {
-        labelled = false;
-        kind = looksMobile(parts.e164) ? 'mobile' : 'phone';
-      }
+        const parts = normalizePhone(repaired, defaultCode);
+        let kind: PhoneKind = 'phone';
+        let labelled = true;
+        if (LABEL_WHATSAPP.test(line)) kind = 'whatsapp';
+        else if (LABEL_FAX.test(line)) kind = 'fax';
+        else if (LABEL_MOBILE.test(line)) kind = 'mobile';
+        else if (LABEL_PHONE.test(line)) kind = 'phone';
+        else {
+          labelled = false;
+          kind = looksMobile(parts.e164) ? 'mobile' : 'phone';
+        }
 
-      if (found.some((p) => samePhone(p.e164, parts.e164))) return;
-      found.push({ kind, ...parts, index, labelled });
-      ledger.claim(index, 'phone');
+        if (found.some((p) => samePhone(p.e164, parts.e164))) return;
+        found.push({ kind, ...parts, index, labelled });
+        ledger.claim(index, 'phone');
+      });
     });
   });
 

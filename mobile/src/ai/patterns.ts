@@ -96,6 +96,64 @@ export function extractLinkedIn(line: string): string | null {
 /** Suites de caractères pouvant constituer un numéro, tolérantes aux erreurs OCR. */
 export const PHONE_CANDIDATE_RE = /(?:\+|00)?[\d][\d\s.\-()/OolISB]{6,}[\dOolISB]/g;
 
+/**
+ * Sépare les numéros qui partagent une même ligne.
+ *
+ * Les cartes écrivent couramment « Tél : 081 000 0000 / 099 111 1111 », ou
+ * séparent deux lignes téléphoniques par un tiret, une virgule ou simplement
+ * des espaces. La suite entière forme alors un seul candidat, trop long pour
+ * être un numéro — et sans découpage, **les deux numéros sont perdus**.
+ *
+ * Le découpage n'a lieu que si l'ensemble n'est pas déjà un numéro valable :
+ * « 081 - 000 - 0000 » reste un seul numéro et n'est pas fragmenté.
+ */
+export function splitPhoneCandidates(raw: string): string[] {
+  // « +243 (0)81 … » : le 0 national entre parenthèses ne fait pas partie du numéro.
+  const whole = (raw || '').replace(/\(\s*0\s*\)/g, '').trim();
+  if (!whole) return [];
+  if (isPlausiblePhone(whole)) return [whole];
+
+  const pieces: string[] = [];
+  whole
+    .split(PHONE_SEPARATORS)
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .forEach((part) => pieces.push(...splitGluedPhones(part)));
+
+  return pieces.map((p) => p.trim()).filter((p) => isPlausiblePhone(p));
+}
+
+/** Séparateurs explicites entre deux numéros imprimés côte à côte. */
+const PHONE_SEPARATORS = /\s*(?:[/;,&|]|\bou\b|\bet\b)\s*|\s{2,}/i;
+
+/**
+ * Deux numéros séparés par de simples espaces. On avance groupe par groupe et
+ * on ouvre un nouveau numéro dès qu'un groupe commence comme un début de
+ * numéro (« + », « 00 », « 0X ») alors que le précédent est déjà complet.
+ */
+function splitGluedPhones(part: string): string[] {
+  if (digitsOnly(part).length <= MAX_PHONE_DIGITS) return [part];
+
+  const out: string[] = [];
+  let current: string[] = [];
+  const currentDigits = () => digitsOnly(current.join(''));
+
+  part.split(/\s+/).forEach((token) => {
+    if (/^(?:\+|00|0\d)/.test(token) && currentDigits().length >= MIN_PHONE_DIGITS) {
+      out.push(current.join(' '));
+      current = [];
+    }
+    current.push(token);
+    // Filet de sécurité : au-delà de la longueur maximale, c'est un autre numéro.
+    if (currentDigits().length >= MAX_PHONE_DIGITS) {
+      out.push(current.join(' '));
+      current = [];
+    }
+  });
+  if (current.length) out.push(current.join(' '));
+  return out;
+}
+
 export interface PhoneParts {
   /** Forme E.164 quand l'indicatif est connu, sinon les chiffres tels quels. */
   e164: string;
@@ -154,9 +212,13 @@ export function formatPhone(e164: string): string {
 }
 
 /** Un numéro plausible compte 8 à 15 chiffres et n'est ni une année ni un identifiant. */
+/** Bornes d'un numéro composable : 8 chiffres au minimum, 15 selon la norme E.164. */
+export const MIN_PHONE_DIGITS = 8;
+export const MAX_PHONE_DIGITS = 15;
+
 export function isPlausiblePhone(raw: string): boolean {
   const d = digitsOnly(raw);
-  if (d.length < 8 || d.length > 15) return false;
+  if (d.length < MIN_PHONE_DIGITS || d.length > MAX_PHONE_DIGITS) return false;
   if (/^(19|20)\d{2}$/.test(d)) return false;
   if (/^(\d)\1+$/.test(d)) return false; // 000000000
   return true;

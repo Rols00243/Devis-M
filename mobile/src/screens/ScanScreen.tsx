@@ -29,10 +29,17 @@ import { errorMessage, log } from '../utils';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Scan'>;
 
-/** Seuil de stabilité (rad/s) sous lequel on considère le téléphone immobile. */
-const STEADY_THRESHOLD = 0.12;
-/** Durée d'immobilité requise avant le déclenchement automatique. */
-const STEADY_MS = 900;
+/**
+ * Seuil de stabilité (rad/s) sous lequel on considère le téléphone immobile.
+ * Exigeant à dessein : un léger flou efface les petits caractères, et ce sont
+ * précisément eux qui portent les numéros de téléphone.
+ */
+const STEADY_THRESHOLD = 0.08;
+/**
+ * Durée d'immobilité requise avant le déclenchement automatique. Elle laisse
+ * aussi à l'autofocus le temps de se poser sur la carte.
+ */
+const STEADY_MS = 1200;
 
 const STAGE_LABEL: Record<ScanStage, string> = {
   preparing: "Préparation de l'image…",
@@ -158,7 +165,8 @@ export default function ScanScreen({ navigation, route }: Props) {
     if (!cameraRef.current || busy) return;
     try {
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      const photo = await cameraRef.current.takePictureAsync({ quality: 0.9 });
+      // Qualité maximale : la compression se fait plus tard, une fois seulement.
+      const photo = await cameraRef.current.takePictureAsync({ quality: 1 });
       if (photo?.uri) await processImage(photo.uri);
     } catch (e) {
       hasShot.current = false;
@@ -237,6 +245,10 @@ export default function ScanScreen({ navigation, route }: Props) {
               : 'Tenez le téléphone immobile'
             : 'Appuyez pour photographier'}
         </Text>
+        <Text style={styles.framingHint}>
+          Remplissez le cadre avec la carte : plus elle est grande à l'image, mieux les petits
+          caractères sont lus.
+        </Text>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
@@ -294,7 +306,8 @@ const styles = StyleSheet.create({
 
   frame: {
     alignSelf: 'center',
-    width: '88%',
+    // Large : chaque millimètre de carte gagné à l'image est du texte lisible.
+    width: '94%',
     aspectRatio: 85 / 55,
     borderRadius: radius.md,
     borderWidth: 2,
@@ -308,6 +321,13 @@ const styles = StyleSheet.create({
   cornerBR: { bottom: -2, right: -2, borderBottomWidth: 4, borderRightWidth: 4, borderBottomRightRadius: radius.md },
 
   steadyHint: { color: colors.white, textAlign: 'center', fontSize: 13 },
+  framingHint: {
+    color: 'rgba(255,255,255,0.75)',
+    textAlign: 'center',
+    fontSize: 12,
+    lineHeight: 16,
+    paddingHorizontal: spacing.lg,
+  },
   error: {
     color: colors.white,
     backgroundColor: colors.danger,

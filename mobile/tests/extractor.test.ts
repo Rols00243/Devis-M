@@ -284,3 +284,75 @@ test('le deuxième site web est conservé', () => {
   assert.equal(fields.website, 'www.abc.com');
   assert.ok(findExtra(extras, 'abc-shop.com'), 'second site conservé');
 });
+
+/* ------------------------------------------------------------------ */
+/* Plusieurs numéros sur une même ligne                                */
+/* ------------------------------------------------------------------ */
+
+test('deux numéros séparés par une barre oblique sont tous les deux lus', () => {
+  // Régression : la suite entière formait un seul candidat de 20 chiffres,
+  // rejeté comme invraisemblable — les DEUX numéros disparaissaient.
+  const { fields, extras } = extractFields({
+    text: ['Jean Dupont', 'Tél : 081 000 0000 / 099 111 1111'].join('\n'),
+    defaultCountryCode: '+243',
+  });
+
+  const tous = [fields.phone, fields.secondaryPhone, ...extras.map((e) => e.value)]
+    .filter(Boolean)
+    .map((v) => normalizePhone(v, '+243').e164);
+
+  assert.ok(tous.includes('+243810000000'), `premier numéro attendu, reçu : ${tous.join(' | ')}`);
+  assert.ok(tous.includes('+243991111111'), `second numéro attendu, reçu : ${tous.join(' | ')}`);
+});
+
+test('deux numéros séparés par un tiret sont tous les deux lus', () => {
+  const { fields } = extractFields({
+    text: ['ABC SARL', '081 000 0000 - 099 111 1111'].join('\n'),
+    defaultCountryCode: '+243',
+  });
+  assert.equal(normalizePhone(fields.phone, '+243').e164, '+243810000000');
+  assert.equal(normalizePhone(fields.secondaryPhone, '+243').e164, '+243991111111');
+});
+
+test('un numéro écrit avec des tirets internes n’est pas fragmenté', () => {
+  const { fields } = extractFields({
+    text: ['ABC SARL', 'Tél : 081 - 000 - 0000'].join('\n'),
+    defaultCountryCode: '+243',
+  });
+  assert.equal(normalizePhone(fields.phone, '+243').e164, '+243810000000');
+  assert.equal(fields.secondaryPhone, '', 'aucun numéro inventé par le découpage');
+});
+
+test('le zéro national entre parenthèses est retiré', () => {
+  const { fields } = extractFields({ text: ['ABC SARL', '+243 (0)81 000 0000'].join('\n') });
+  assert.equal(normalizePhone(fields.phone).e164, '+243810000000');
+});
+
+test('trois numéros collés sur une ligne sont tous conservés', () => {
+  const { fields, extras } = extractFields({
+    text: ['ABC SARL', '081 000 0000 099 111 1111 097 222 2222'].join('\n'),
+    defaultCountryCode: '+243',
+  });
+  const tous = [fields.phone, fields.secondaryPhone, ...extras.map((e) => e.value)]
+    .filter(Boolean)
+    .map((v) => normalizePhone(v, '+243').e164);
+  assert.equal(new Set(tous).size, 3, `trois numéros attendus, reçu : ${tous.join(' | ')}`);
+});
+
+test('la géométrie reste alignée quand l’OCR renvoie des fragments', () => {
+  // `toLines` écarte les fragments d'un caractère : sans recalage, la hauteur
+  // de la ligne « Jean Dupont » serait attribuée à la ligne suivante, et le
+  // nom cherché au mauvais endroit.
+  const { fields } = extractFields({
+    text: ['*', 'Jean Dupont', 'Directeur Général', 'ABC Construction SARL'].join('\n'),
+    lines: [
+      { text: '*', y: 0.02, height: 0.02 },
+      { text: 'Jean Dupont', y: 0.2, height: 0.2 },
+      { text: 'Directeur Général', y: 0.5, height: 0.06 },
+      { text: 'ABC Construction SARL', y: 0.8, height: 0.06 },
+    ],
+  });
+
+  assert.equal(fields.firstName, 'Jean');
+  assert.equal(fields.lastName, 'Dupont');
+});
