@@ -24,7 +24,7 @@
       <button class="tbtn ghost" id="btnUndo">↶ Annuler</button>
     </div>
     <div class="spacer"></div>
-    <span class="tbtn ghost" style="cursor:default">DWG* · DXF · PDF · BMP/JPG</span>
+    <span class="tbtn ghost" style="cursor:default">DWG* · DXF · PDF · BMP/JPG · Revit (nomenclature)</span>
   </header>
 
   <div class="stepbar">
@@ -49,7 +49,7 @@
       <button class="bigbtn" id="btnDemo" style="background:var(--accent2)">▶️ Essayer avec un plan d'exemple</button>
       <div style="color:var(--muted);font-size:12px">— ou —</div>
       <button class="bigbtn" id="btnImport2">📂 Importer un plan (DXF · PDF · BMP/JPG)</button>
-      <p style="max-width:440px;font-size:12px;margin-top:2px">DWG : à convertir en DXF/PDF. Glisser-déposer possible ici.</p>
+      <p style="max-width:440px;font-size:12px;margin-top:2px">DWG : à convertir en DXF/PDF. Revit : importez une nomenclature exportée (.txt/.csv). Glisser-déposer possible ici.</p>
     </div>
     <div class="hint" id="hint" style="display:none"></div>
     <div class="zoombar" id="zoombar" style="display:none"><button id="zOut">−</button><button id="zFit">⤢</button><button id="zIn">+</button></div>
@@ -144,7 +144,7 @@
   <div class="actions"><button id="autoCancel">Annuler</button><button class="ok" id="autoOk" style="background:var(--accent2);border-color:var(--accent2);color:#08210f">Générer le devis</button></div>
 </div></div>
 
-<input type="file" id="fileInput" accept="image/*,application/pdf,.dxf,.dwg,.dgn,.ifc,.rvt,.rfa,.bmp,.jpg,.jpeg" style="display:none">
+<input type="file" id="fileInput" accept="image/*,application/pdf,.dxf,.txt,.csv,.dwg,.dgn,.ifc,.rvt,.rfa,.bmp,.jpg,.jpeg" style="display:none">
 <div id="printArea" style="display:none"></div>
 
 <script src="app.js"></script>

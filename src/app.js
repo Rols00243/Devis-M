@@ -114,7 +114,7 @@ function tableRows(){ const rows=[];
     }
   }); return rows;
 }
-function stdDetails(sh,ov){ if(sh.manualQty!=null&&sh.manualQty!=="") return "saisie manuelle";
+function stdDetails(sh,ov){ if(sh.manualQty!=null&&sh.manualQty!=="") return sh.src||"saisie manuelle";
   if(ov.unit==="ml")return "L = "+nf(px2m(polyLenPx(sh.points)))+" m";
   if(ov.unit==="m2")return "S = "+nf(Math.pow(px2m(1),2)*areaPx(sh.points))+" m²";
   if(ov.unit==="m3")return "S="+nf(Math.pow(px2m(1),2)*areaPx(sh.points))+" m² × h="+nf(sh.height||ov.height)+" m";
@@ -126,7 +126,7 @@ function render(){ planX.clearRect(0,0,planC.width,planC.height);
   ovX.clearRect(0,0,ovC.width,ovC.height);
   state.shapes.forEach(sh=> sh.kind==="struct"? drawStruct(sh):drawStd(sh));
   if(state.draft.length)drawDraft(); if(state.calibPts)drawCalib(); }
-function drawStd(sh){ const ov=libById(sh.ouvrageId); const col=ov?ov.color:"#3b82f6"; const pts=sh.points.map(toScreen);
+function drawStd(sh){ if(!sh.points.length)return; const ov=libById(sh.ouvrageId); const col=ov?ov.color:"#3b82f6"; const pts=sh.points.map(toScreen);
   ovX.lineWidth=2; ovX.strokeStyle=col; ovX.fillStyle=hexA(col,.18);
   if(ov&&ov.unit==="u"){ pts.forEach(p=>dot(p,col)); if(pts[0])labelAt(pts[0],ov.name+" ("+sh.points.length+")",col); return; }
   ovX.beginPath(); pts.forEach((p,i)=> i?ovX.lineTo(p.x,p.y):ovX.moveTo(p.x,p.y));
@@ -210,10 +210,13 @@ const CAO_CONVERT={dwg:"DWG (AutoCAD)",dgn:"DGN (MicroStation)",ifc:"IFC (BIM)",
 async function routeFile(f){ const name=(f.name||"").toLowerCase(); const ext=name.split(".").pop();
   if(f.type==="application/pdf"||ext==="pdf"){ await loadPDF(f); return; }
   if(ext==="dxf"){ await loadDXFfile(f); return; }
+  if(ext==="csv"||ext==="txt"){ await loadScheduleFile(f); return; }
   if(CAO_CONVERT[ext]){ caoHelp(ext); return; }
   if(f.type.startsWith("image/")||/(png|jpe?g|gif|webp|bmp|svg)$/.test(ext)){ await loadImage(URL.createObjectURL(f)); return; }
-  flashHint("Format non reconnu. Acceptés : DXF, PDF, images (BMP/JPG/PNG). DWG à convertir en DXF/PDF."); }
-function caoHelp(ext){ showHint("⚠️ Le format "+CAO_CONVERT[ext]+" est propriétaire et ne se lit pas dans un navigateur. Exportez-le en <b>DXF</b> ou <b>PDF</b> puis réimportez-le. Convertisseur DWG gratuit : ODA File Converter."); }
+  flashHint("Format non reconnu. Acceptés : DXF, PDF, images (BMP/JPG/PNG), nomenclatures Revit (TXT/CSV). DWG à convertir en DXF/PDF."); }
+function caoHelp(ext){
+  if(ext==="rvt"||ext==="rfa"){ showHint("⚠️ Le format "+CAO_CONVERT[ext]+" ne se lit pas dans un navigateur. Dans Revit : ouvrez une <b>nomenclature</b> (murs, sols, poteaux…) puis <b>Fichier › Exporter › Rapports › Nomenclature</b> (.txt) et importez ce fichier ici. Pour le plan : exportez en <b>DXF</b> ou <b>PDF</b>."); return; }
+  showHint("⚠️ Le format "+CAO_CONVERT[ext]+" est propriétaire et ne se lit pas dans un navigateur. Exportez-le en <b>DXF</b> ou <b>PDF</b> puis réimportez-le. Convertisseur DWG gratuit : ODA File Converter."); }
 function loadImage(src){ return new Promise(res=>{ const im=new Image(); im.onload=()=>{ setImage(im,im.naturalWidth,im.naturalHeight); res(); }; im.src=src; }); }
 async function loadPDF(file){ const buf=await file.arrayBuffer(); const pdf=await pdfjsLib.getDocument({data:buf}).promise; const page=await pdf.getPage(1);
   const vp=page.getViewport({scale:2.2}); const c=document.createElement("canvas"); c.width=vp.width; c.height=vp.height;
@@ -245,6 +248,58 @@ function renderDXF(txt){ const lines=txt.split(/\r\n|\r|\n/),tokens=[]; let idx=
     document.getElementById("emptyState").style.display="none"; document.getElementById("zoombar").style.display="flex"; fitView(); updateScaleTag(); refreshAll(); setTool("area");
     showHint("✅ DXF importé — "+polys.length+" entités. "+(unitKnown?"Échelle détectée. ":"")+"Cliquez <b>🤖 Analyser le plan</b> pour extraire automatiquement les mesures."); };
   im.src=cv.toDataURL(); }
+
+/* ---------- Import nomenclature Revit (TXT/CSV) ---------- */
+// Revit : Fichier › Exporter › Rapports › Nomenclature → texte délimité (tabulation, guillemets).
+// Chaque ligne devient une mesure sans géométrie (quantité imposée via manualQty).
+const SCHED_COLS={
+  famtype:/^(famille et type|family and type)$/, fam:/^(famille|family)$/, type:/^(type|type de famille|family type)$/,
+  name:/^(nom|name|description|designation|ouvrage|element|article)$/, cat:/^(categorie|category)$/,
+  mat:/(materiau|material)/, vol:/^volume/, area:/^(surface|aire|area)/, len:/^(longueur|length)/, count:/^(nombre|count|quantite|quantity|qte)/
+};
+function normTxt(s){ return String(s||"").normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase().replace(/\(.*?\)/g,"").trim(); }
+function splitDelim(txt,d){ const rows=[]; let row=[],cell="",q=false;
+  for(let i=0;i<txt.length;i++){ const ch=txt[i];
+    if(q){ if(ch==='"'){ if(txt[i+1]==='"'){cell+='"';i++;} else q=false; } else cell+=ch; continue; }
+    if(ch==='"')q=true; else if(ch===d){row.push(cell);cell="";} else if(ch==="\n"||ch==="\r"){ if(ch==="\r"&&txt[i+1]==="\n")i++; row.push(cell); rows.push(row); row=[]; cell=""; } else cell+=ch; }
+  if(cell!==""||row.length){ row.push(cell); rows.push(row); } return rows.map(r=>r.map(c=>c.trim())); }
+function parseQty(v){ if(v==null)return null; let s=String(v).replace(/[\s  ]/g,""); if(!s)return null;
+  const unitM=/mm$/.test(s)?0.001:/cm$/.test(s)?0.01:1; const m=s.match(/-?[\d.,]+/); if(!m)return null; let n=m[0];
+  if(n.includes(",")&&n.includes(".")) n=n.lastIndexOf(",")>n.lastIndexOf(".")? n.replace(/\./g,"").replace(",","."):n.replace(/,/g,"");
+  else if(n.includes(",")) n=n.replace(",","."); // Revit FR : virgule décimale
+  const x=parseFloat(n); return isNaN(x)?null:x*unitM; }
+function parseSchedule(txt){ txt=txt.replace(/^﻿/,"");
+  const first=txt.split(/\r?\n/).slice(0,10).join("\n"); const d=["\t",";",","].map(c=>({c,n:first.split(c).length})).sort((a,b)=>b.n-a.n)[0].c;
+  const rows=splitDelim(txt,d); let hi=-1,cols=null;
+  for(let i=0;i<Math.min(rows.length,15)&&hi<0;i++){ const c={}; rows[i].forEach((h,j)=>{ const k=normTxt(h); for(const key in SCHED_COLS){ if(c[key]===undefined&&SCHED_COLS[key].test(k)){ c[key]=j; break; } } });
+    const hasName=["famtype","fam","type","name","cat"].some(k=>c[k]!==undefined), hasQty=["vol","area","len","count"].some(k=>c[k]!==undefined);
+    if(hasName&&hasQty){ hi=i; cols=c; } }
+  if(hi<0)return null;
+  const cell=(r,k)=>cols[k]!==undefined?(r[cols[k]]||""):""; const items=[];
+  rows.slice(hi+1).forEach(r=>{ if(!r.some(c=>c))return;
+    const fam=cell(r,"fam"),typ=cell(r,"type"); let desig=cell(r,"famtype")||(fam&&typ?(typ.includes(fam)?typ:fam+" : "+typ):(typ||fam))||cell(r,"name")||cell(r,"cat");
+    if(!desig||/^(total|grand total|totaux)/i.test(normTxt(desig)))return;
+    const vol=parseQty(cell(r,"vol")),area=parseQty(cell(r,"area")),len=parseQty(cell(r,"len")),cnt=parseQty(cell(r,"count"));
+    let unit,q; if(vol){unit="m3";q=vol;} else if(area){unit="m2";q=area;} else if(len){unit="ml";q=len;} else {unit="u";q=cnt||1;}
+    items.push({desig,unit,q,cat:cell(r,"cat"),mat:cell(r,"mat")}); });
+  return items; }
+function schedPhase(it){ const t=normTxt(it.cat+" "+it.desig);
+  if(/(fondation|foundation|semelle|radier|longrine)/.test(t))return "fondation";
+  if(/(poteau|column|ossature|framing|poutre|beam|voile|dalle|structur)/.test(t)||(it.unit==="m3"&&/(beton|concrete)/.test(normTxt(it.mat+" "+it.desig))))return "elevation";
+  return "second"; }
+function importSchedule(txt,fname){ const items=parseSchedule(txt);
+  if(!items||!items.length){ flashHint("⚠️ Nomenclature non reconnue : il faut une colonne de désignation (Famille et type, Type…) et une colonne de quantité (Volume, Surface, Longueur ou Nombre)."); return 0; }
+  const groups={}; items.forEach(it=>{ const k=it.desig+"|"+it.unit; if(!groups[k])groups[k]=Object.assign({},it,{q:0,n:0}); groups[k].q+=it.q; groups[k].n++; });
+  let newOv=0; Object.values(groups).forEach(g=>{ const ph=schedPhase(g); let ov;
+    if(g.unit==="m3"&&ph!=="second"&&/(beton|concrete|^$)/.test(normTxt(g.mat))) ov=libById("BETON");
+    const typeOnly=normTxt(g.desig.split(" : ").pop());
+    if(!ov) ov=state.library.find(o=>o.unit===g.unit&&[normTxt(g.desig),typeOnly].includes(normTxt(o.name)));
+    if(!ov){ ov={id:id(),name:g.desig,unit:g.unit,price:0,coef:0,color:PALETTE[state.library.length%PALETTE.length],height:0}; state.library.push(ov); newOv++; }
+    state.shapes.push({id:id(),kind:"std",phase:ph,ouvrageId:ov.id,points:[],height:0,manualQty:Math.round(g.q*1000)/1000,src:"Revit — "+(g.desig!==ov.name?g.desig+" · ":"")+g.n+" élément(s)"}); });
+  document.getElementById("viewOuvrages").click(); refreshAll();
+  flashHint("✅ Nomenclature Revit importée ("+esc(fname||"")+") : "+Object.keys(groups).length+" ligne(s) ajoutée(s)"+(newOv?", "+newOv+" nouvel(s) ouvrage(s) à chiffrer (prix = 0)":"")+".");
+  return Object.keys(groups).length; }
+function loadScheduleFile(f){ return f.text().then(t=>importSchedule(t,f.name)).catch(()=>flashHint("Lecture de la nomenclature impossible.")); }
 ["dragenter","dragover"].forEach(ev=>stage.addEventListener(ev,e=>{e.preventDefault();stage.style.outline="2px dashed var(--accent)";}));
 ["dragleave","drop"].forEach(ev=>stage.addEventListener(ev,e=>{e.preventDefault();stage.style.outline="none";}));
 stage.addEventListener("drop",async e=>{ const f=e.dataTransfer.files[0]; if(f)await routeFile(f); });
