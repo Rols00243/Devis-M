@@ -29,6 +29,8 @@ OUVRIR  →  SCANNER  →  OCR + IA  →  VÉRIFIER  →  « ENREGISTRER »  →
 | Dépôt du contact dans un compte synchronisé (Google, iCloud, Outlook) | ✅ |
 | Base locale SQLite, fonctionnement hors ligne complet | ✅ |
 | Historique, recherche multi-critères, fiche détaillée | ✅ |
+| **Ma carte de visite** : créer la sienne, avec QR code, PDF et impression | ✅ |
+| Thème clair / sombre, ou celui du téléphone | ✅ |
 | Export vCard et CSV, partage | ✅ |
 | Compte, sauvegarde cloud, synchronisation automatique | ✅ |
 | Confidentialité : cloisonnement par utilisateur (RLS), suppression définitive | ✅ |
@@ -128,10 +130,15 @@ src/
   services/      supabase, auth, synchronisation, exports
     vcard.ts          vCard 3.0 et CSV (pur, testé)
   store/         état global (zustand)
-  screens/       accueil, scan, vérification, cartes, fiche, historique, réglages, compte
+  mycard/        la carte de visite de l'utilisateur
+    model.ts          champs, lignes de contact, vCard (pur, testé)
+    qr.ts             matrice et SVG du QR code (pur, testé)
+    html.ts           rendu imprimable 85 × 55 mm (pur, testé)
+    export.ts         PDF, partage, impression
+  screens/       accueil, scan, vérification, cartes, fiche, ma carte, historique, réglages, compte
   components/    composants d'interface partagés
   navigation/    pile de navigation et types de routes
-  theme/         couleurs, espacements, typographie
+  theme/         deux palettes (claire et sombre), jetons et bascule
 supabase/
   schema.sql            tables, RLS, bucket, purge des données
   functions/extract-card    extraction IA (Claude vision, sortie structurée)
@@ -177,6 +184,19 @@ dans les numéros, un e-mail dans les e-mails, un réseau social dans les profil
 — et ce qui n'a pas de champ dédié est écrit dans les notes du contact. Le texte
 OCR intégral reste par ailleurs attaché à la carte.
 
+**La carte, dans les deux sens.** L'application sait lire une carte de visite ;
+elle sait donc en écrire une. « Ma carte » reprend exactement les mêmes champs,
+avec trois mises en page et un QR code qui contient la fiche entière : le
+destinataire n'a plus rien à recopier, son téléphone lit le code — même sur une
+carte imprimée sur papier. L'export est un PDF aux dimensions réelles (85 × 55
+mm), donc bon pour l'imprimeur comme pour la messagerie ; une capture d'écran
+arriverait floue et à une taille arbitraire.
+
+**Deux teintes, un seul code.** Les palettes claire et sombre portent les mêmes
+clés : un écran s'écrit une fois. `makeStyles` construit la feuille de styles
+une fois par teinte et la garde en cache, ce qui laisse le coût du changement de
+thème au niveau d'un rendu ordinaire.
+
 **Le numéro doit être trouvable partout.** Un contact écrit par une
 application atterrit *sur l'appareil* : il s'affiche dans le répertoire, donc
 dans le téléphone, dans WhatsApp et dans toute application qui lit les
@@ -218,7 +238,7 @@ Quelques comportements couverts par les tests :
 - un troisième numéro, un second e-mail, un RCCM ou un slogan sont conservés.
 
 ```bash
-npm test     # 47 tests
+npm test     # 59 tests
 ```
 
 ---

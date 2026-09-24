@@ -24,7 +24,7 @@ import { isDocumentScannerAvailable, scanDocument } from '../ocr/documentScanner
 import { persistImage } from '../storage/images';
 import { prepareForArchive } from '../ocr/imagePipeline';
 import { useSettingsStore } from '../store/settingsStore';
-import { colors, radius, spacing, typography } from '../theme';
+import { makeStyles, radius, spacing, useTheme } from '../theme';
 import { errorMessage, log } from '../utils';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Scan'>;
@@ -50,6 +50,7 @@ const STAGE_LABEL: Record<ScanStage, string> = {
 };
 
 export default function ScanScreen({ navigation, route }: Props) {
+  const styles = useStyles();
   const batchMode = route.params?.mode === 'batch';
   const { settings } = useSettingsStore();
   const [permission, requestPermission] = useCameraPermissions();
@@ -290,7 +291,7 @@ export default function ScanScreen({ navigation, route }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(({ colors, typography, elevation }) => ({
   container: { flex: 1, backgroundColor: '#000' },
   overlay: { flex: 1, justifyContent: 'space-between', paddingVertical: spacing.xxl },
 
@@ -370,4 +371,4 @@ const styles = StyleSheet.create({
   busyHint: { ...typography.caption, textAlign: 'center', paddingHorizontal: spacing.xl, paddingBottom: spacing.xxl },
   permTitle: { ...typography.h1 },
   permText: { ...typography.caption, lineHeight: 21, marginBottom: spacing.md },
-});
+}));

@@ -55,7 +55,7 @@ export function vcfBookFileFor(cards: BusinessCard[], name = 'contacts-scancard.
  * Partage un fichier. `expo-sharing` gère l'URI `content://` et l'autorisation
  * de lecture attendues par Android ; `Share` sert de repli.
  */
-async function shareFile(uri: string, mimeType: string, title: string): Promise<void> {
+export async function shareFileForUser(uri: string, mimeType: string, title: string): Promise<void> {
   try {
     if (await Sharing.isAvailableAsync()) {
       await Sharing.shareAsync(uri, { mimeType, dialogTitle: title, UTI: utiFor(mimeType) });
@@ -72,17 +72,17 @@ const utiFor = (mimeType: string): string =>
 
 /** Partage une carte au format vCard (message, e-mail, AirDrop…). */
 export async function shareCard(card: BusinessCard): Promise<void> {
-  await shareFile(vcfFileFor(card), VCARD_MIME, displayName(card));
+  await shareFileForUser(vcfFileFor(card), VCARD_MIME, displayName(card));
 }
 
 /** Exporte plusieurs cartes en un seul fichier vCard. */
 export async function shareAllVcf(cards: BusinessCard[]): Promise<void> {
   const uri = vcfBookFileFor(cards);
-  await shareFile(uri, VCARD_MIME, `${cards.length} contacts`);
+  await shareFileForUser(uri, VCARD_MIME, `${cards.length} contacts`);
 }
 
 /** Exporte le répertoire au format CSV (Excel, LibreOffice, CRM). */
 export async function shareCsv(cards: BusinessCard[]): Promise<void> {
   const uri = writeTempFile('contacts-scancard.csv', toCsv(cards));
-  await shareFile(uri, 'text/csv', `Export CSV de ${cards.length} contacts`);
+  await shareFileForUser(uri, 'text/csv', `Export CSV de ${cards.length} contacts`);
 }

@@ -1,10 +1,10 @@
 /** Composants d'interface partagés : un seul fichier, ils sont tous courts. */
+export { BusinessCardPreview, CARD_RATIO } from './BusinessCardPreview';
 import React from 'react';
 import {
   ActivityIndicator,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   View,
@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, type Edge } from 'react-native-safe-area-context';
 
-import { colors, radius, spacing, TOUCH_TARGET, typography } from '../theme';
+import { makeStyles, radius, spacing, TOUCH_TARGET, useTheme } from '../theme';
 
 /* --------------------------------- Écran --------------------------------- */
 
@@ -29,6 +29,7 @@ export function Screen({
   edges?: Edge[];
   style?: StyleProp<ViewStyle>;
 }) {
+  const styles = useStyles();
   const content = scroll ? (
     <ScrollView
       contentContainerStyle={[styles.scrollContent, style]}
@@ -67,6 +68,8 @@ export function AppButton({
   busy?: boolean;
   style?: StyleProp<ViewStyle>;
 }) {
+  const styles = useStyles();
+  const { colors } = useTheme();
   const palette: Record<ButtonVariant, { bg: string; fg: string; border: string }> = {
     primary: { bg: colors.primary, fg: colors.white, border: colors.primary },
     secondary: { bg: colors.surfaceAlt, fg: colors.text, border: colors.border },
@@ -120,6 +123,8 @@ export function Field({
   confidence?: number;
   multiline?: boolean;
 } & Omit<TextInputProps, 'value' | 'onChangeText' | 'placeholder'> & { placeholder?: string }) {
+  const styles = useStyles();
+  const { colors } = useTheme();
   // Un champ extrait avec peu de certitude est signalé pour que l'utilisateur le relise.
   const uncertain = value.trim() !== '' && confidence !== undefined && confidence < 0.6;
 
@@ -149,6 +154,7 @@ export function Field({
 /* -------------------------------- Divers --------------------------------- */
 
 export function SectionTitle({ children }: { children: React.ReactNode }) {
+  const styles = useStyles();
   return <Text style={styles.sectionTitle}>{children}</Text>;
 }
 
@@ -159,6 +165,8 @@ export function Badge({
   label: string;
   tone?: 'neutral' | 'success' | 'warning' | 'info';
 }) {
+  const styles = useStyles();
+  const { colors } = useTheme();
   const toneColor = {
     neutral: colors.textMuted,
     success: colors.success,
@@ -183,6 +191,7 @@ export function EmptyState({
   message: string;
   action?: React.ReactNode;
 }) {
+  const styles = useStyles();
   return (
     <View style={styles.empty}>
       <Text style={styles.emptyIcon}>{icon}</Text>
@@ -194,6 +203,8 @@ export function EmptyState({
 }
 
 export function Loader({ label }: { label?: string }) {
+  const styles = useStyles();
+  const { colors } = useTheme();
   return (
     <View style={styles.loader}>
       <ActivityIndicator color={colors.primary} size="large" />
@@ -203,6 +214,7 @@ export function Loader({ label }: { label?: string }) {
 }
 
 export function Card({ children, style }: { children: React.ReactNode; style?: StyleProp<ViewStyle> }) {
+  const styles = useStyles();
   return <View style={[styles.card, style]}>{children}</View>;
 }
 
@@ -217,6 +229,7 @@ export function Row({
   onPress?: () => void;
   icon?: string;
 }) {
+  const styles = useStyles();
   const body = (
     <View style={styles.row}>
       <Text style={styles.rowLabel}>
@@ -236,7 +249,7 @@ export function Row({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(({ colors, typography, elevation }) => ({
   flex: { flex: 1 },
   screen: { flex: 1, backgroundColor: colors.bg },
   scrollContent: { padding: spacing.lg, paddingBottom: spacing.xxl, gap: spacing.md },
@@ -302,6 +315,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     padding: spacing.lg,
     gap: spacing.sm,
+    ...elevation,
   },
 
   row: {
@@ -314,4 +328,4 @@ const styles = StyleSheet.create({
   rowLabel: { ...typography.caption, flexShrink: 0 },
   rowValue: { ...typography.body, flex: 1, textAlign: 'right' },
   rowValueLink: { color: colors.primary },
-});
+}));

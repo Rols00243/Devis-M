@@ -1,5 +1,10 @@
 /** Pile de navigation unique : l'application est linéaire, sans onglets. */
-import { DarkTheme, NavigationContainer, type Theme } from '@react-navigation/native';
+import {
+  DarkTheme,
+  DefaultTheme,
+  NavigationContainer,
+  type Theme,
+} from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import React from 'react';
 
@@ -8,27 +13,32 @@ import CardDetailScreen from '../screens/CardDetailScreen';
 import CardsScreen from '../screens/CardsScreen';
 import HistoryScreen from '../screens/HistoryScreen';
 import HomeScreen from '../screens/HomeScreen';
+import MyCardScreen from '../screens/MyCardScreen';
 import ReviewScreen from '../screens/ReviewScreen';
 import ScanScreen from '../screens/ScanScreen';
 import SettingsScreen from '../screens/SettingsScreen';
-import { colors } from '../theme';
+import { useTheme } from '../theme';
 import type { RootStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-const navigationTheme: Theme = {
-  ...DarkTheme,
-  colors: {
-    ...DarkTheme.colors,
-    background: colors.bg,
-    card: colors.surface,
-    text: colors.text,
-    border: colors.border,
-    primary: colors.primary,
-  },
-};
-
 export default function RootNavigator() {
+  const { colors, scheme } = useTheme();
+  // Le thème de la navigation porte les mêmes couleurs que les écrans : sans
+  // cela, l'en-tête et le fond de transition restent dans l'ancienne teinte.
+  const base = scheme === 'dark' ? DarkTheme : DefaultTheme;
+  const navigationTheme: Theme = {
+    ...base,
+    colors: {
+      ...base.colors,
+      background: colors.bg,
+      card: colors.surface,
+      text: colors.text,
+      border: colors.border,
+      primary: colors.primary,
+    },
+  };
+
   return (
     <NavigationContainer theme={navigationTheme}>
       <Stack.Navigator
@@ -52,6 +62,11 @@ export default function RootNavigator() {
         <Stack.Screen name="Cards" component={CardsScreen} options={{ title: 'Mes cartes' }} />
         <Stack.Screen name="CardDetail" component={CardDetailScreen} options={{ title: 'Fiche' }} />
         <Stack.Screen name="History" component={HistoryScreen} options={{ title: 'Historique' }} />
+        <Stack.Screen
+          name="MyCard"
+          component={MyCardScreen}
+          options={{ title: 'Ma carte de visite' }}
+        />
         <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: 'Paramètres' }} />
         <Stack.Screen name="Account" component={AccountScreen} options={{ title: 'Compte' }} />
       </Stack.Navigator>

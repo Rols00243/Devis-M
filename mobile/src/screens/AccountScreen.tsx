@@ -9,12 +9,13 @@ import { AppButton, Card, Field, Row, Screen, SectionTitle } from '../components
 import type { RootStackParamList } from '../navigation/types';
 import { syncNow } from '../services/sync';
 import { useAuthStore } from '../store/authStore';
-import { colors, spacing, typography } from '../theme';
+import { makeStyles, spacing, useTheme } from '../theme';
 import { errorMessage } from '../utils';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Account'>;
 
 export default function AccountScreen({ navigation }: Props) {
+  const styles = useStyles();
   const { user, busy, error, login, register, logout, clearError, cloudConfigured } = useAuthStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -118,7 +119,7 @@ export default function AccountScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(({ colors, typography, elevation }) => ({
   text: { ...typography.caption, lineHeight: 19 },
   error: { ...typography.caption, color: colors.danger, marginTop: spacing.xs },
-});
+}));

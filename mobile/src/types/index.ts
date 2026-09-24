@@ -188,6 +188,8 @@ export interface AppSettings {
   offerSyncedAccount: boolean;
   /** Indicatif pays par défaut, utilisé pour normaliser les numéros locaux. */
   defaultCountryCode: string;
+  /** Teinte de l'interface : celle du téléphone, ou imposée. */
+  themeMode: 'system' | 'light' | 'dark';
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -198,4 +200,59 @@ export const DEFAULT_SETTINGS: AppSettings = {
   rawTextInNotes: false,
   offerSyncedAccount: true,
   defaultCountryCode: '+243',
+  themeMode: 'system',
+};
+
+/* ------------------------------------------------------------------ */
+/* Ma carte de visite                                                  */
+/* ------------------------------------------------------------------ */
+
+/** Mise en page de la carte que l'utilisateur crée pour lui-même. */
+export type CardTemplate = 'classic' | 'bold' | 'minimal';
+
+export const CARD_TEMPLATES: { id: CardTemplate; label: string; hint: string }[] = [
+  { id: 'classic', label: 'Classique', hint: 'Bandeau coloré, texte à gauche' },
+  { id: 'bold', label: 'Affirmé', hint: 'Fond coloré plein, contraste fort' },
+  { id: 'minimal', label: 'Épuré', hint: 'Fond clair, filet de couleur' },
+];
+
+/** Couleurs d'accent proposées ; l'utilisateur en choisit une. */
+export const CARD_ACCENTS = [
+  '#2563EB',
+  '#0F766E',
+  '#B45309',
+  '#B91C1C',
+  '#6D28D9',
+  '#0F172A',
+] as const;
+
+/**
+ * La carte de visite de l'utilisateur.
+ *
+ * Elle reprend les 14 champs d'une carte scannée — c'est le même objet métier,
+ * vu de l'autre côté — et y ajoute ce qui relève de la mise en page.
+ */
+export interface MyCard extends CardFields {
+  /** Accroche imprimée sous l'entreprise, facultative. */
+  slogan: string;
+  /** Logo ou photo, stocké dans le dossier privé de l'application. */
+  logoUri: string | null;
+  template: CardTemplate;
+  accent: string;
+  /**
+   * Imprimer un QR code contenant la fiche complète. Scanné par n'importe quel
+   * téléphone, il transmet le contact sans aucune erreur de lecture.
+   */
+  showQrCode: boolean;
+  updatedAt: string;
+}
+
+export const EMPTY_MY_CARD: MyCard = {
+  ...EMPTY_FIELDS,
+  slogan: '',
+  logoUri: null,
+  template: 'classic',
+  accent: CARD_ACCENTS[0],
+  showQrCode: true,
+  updatedAt: '',
 };

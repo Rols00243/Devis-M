@@ -43,7 +43,11 @@ Pièges déjà rencontrés sur ce SDK :
   fonction Edge Supabase. L'app ne connaît que l'URL et la clé anon.
 - **Hors ligne d'abord** : toute fonctionnalité doit se comporter correctement
   sans réseau et sans compte.
-- Interface en français, thème sombre, zones tactiles d'au moins 48 px.
+- **Deux teintes.** Aucune couleur en dur : les styles passent par
+  `makeStyles(({ colors, typography, elevation }) => …)` et les couleurs lues
+  dans le corps d'un composant par `useTheme()`. Les deux palettes de
+  `theme/tokens.ts` portent les mêmes clés.
+- Interface en français, zones tactiles d'au moins 48 px.
 
 ## Vérifier
 

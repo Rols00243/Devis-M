@@ -10,7 +10,7 @@ import { Image, Pressable, SectionList, StyleSheet, Text, View } from 'react-nat
 import { AppButton, Badge, EmptyState, Screen } from '../components';
 import { listCards } from '../database/cardRepository';
 import type { RootStackParamList } from '../navigation/types';
-import { colors, radius, spacing, TOUCH_TARGET, typography } from '../theme';
+import { TOUCH_TARGET, makeStyles, radius, spacing, useTheme } from '../theme';
 import type { BusinessCard, CardStatus } from '../types';
 import { displayName, formatDateTime, initials } from '../utils';
 
@@ -24,6 +24,7 @@ const STATUS: Record<CardStatus, { label: string; tone: 'success' | 'warning' | 
 };
 
 export default function HistoryScreen({ navigation }: Props) {
+  const styles = useStyles();
   const [cards, setCards] = useState<BusinessCard[]>([]);
 
   useFocusEffect(
@@ -95,7 +96,7 @@ export default function HistoryScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(({ colors, typography, elevation }) => ({
   list: { padding: spacing.lg, gap: spacing.sm, paddingBottom: spacing.xxl },
   listEmpty: { flexGrow: 1 },
   sectionHeader: {
@@ -124,4 +125,4 @@ const styles = StyleSheet.create({
   name: { ...typography.h2 },
   company: { ...typography.caption },
   date: { fontSize: 11, color: colors.textFaint },
-});
+}));

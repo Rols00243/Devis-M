@@ -16,13 +16,14 @@ import { shareCard } from '../services/export';
 import { isAccountHandoffAvailable, sendToSyncedAccount } from '../contacts/destinations';
 import { useCardsStore } from '../store/cardsStore';
 import { useSettingsStore } from '../store/settingsStore';
-import { colors, radius, spacing, typography } from '../theme';
+import { makeStyles, radius, spacing, useTheme } from '../theme';
 import type { BusinessCard } from '../types';
 import { displayName, errorMessage, formatDateTime } from '../utils';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CardDetail'>;
 
 export default function CardDetailScreen({ navigation, route }: Props) {
+  const styles = useStyles();
   const { cardId } = route.params;
   const { remove, patch } = useCardsStore();
   const { settings } = useSettingsStore();
@@ -213,7 +214,7 @@ function engineLabel(engine: BusinessCard['ocrEngine']): string {
   return 'Saisie manuelle';
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(({ colors, typography, elevation }) => ({
   image: { width: '100%', aspectRatio: 85 / 55, borderRadius: radius.md, backgroundColor: colors.surfaceAlt },
   identity: { gap: spacing.xs },
   name: { ...typography.title },
@@ -223,4 +224,4 @@ const styles = StyleSheet.create({
   quickActions: { flexDirection: 'row', gap: spacing.sm },
   quickButton: { flex: 1 },
   actions: { gap: spacing.sm, marginTop: spacing.md },
-});
+}));

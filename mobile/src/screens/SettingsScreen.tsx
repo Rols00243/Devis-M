@@ -5,7 +5,7 @@
  */
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, StyleSheet, Switch, Text, View } from 'react-native';
+import { Alert, Pressable, Switch, Text, View } from 'react-native';
 
 import { AppButton, Card, Row, Screen, SectionTitle } from '../components';
 import { listCards, referencedImages } from '../database/cardRepository';
@@ -19,13 +19,21 @@ import { syncNow } from '../services/sync';
 import { formatBytes, imagesFootprint, pruneOrphanImages } from '../storage/images';
 import { useAuthStore } from '../store/authStore';
 import { useSettingsStore } from '../store/settingsStore';
-import { colors, spacing, typography } from '../theme';
+import { makeStyles, radius, spacing, TOUCH_TARGET, useTheme } from '../theme';
 import type { AppSettings } from '../types';
 import { errorMessage } from '../utils';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Settings'>;
 
+/** Les trois teintes proposées ; « automatique » suit le réglage du téléphone. */
+const THEME_CHOICES: { id: AppSettings['themeMode']; label: string; icon: string }[] = [
+  { id: 'system', label: 'Automatique', icon: '🌗' },
+  { id: 'light', label: 'Clair', icon: '☀️' },
+  { id: 'dark', label: 'Sombre', icon: '🌙' },
+];
+
 export default function SettingsScreen({ navigation }: Props) {
+  const styles = useStyles();
   const { settings, set } = useSettingsStore();
   const { user, cloudConfigured } = useAuthStore();
   const [footprint, setFootprint] = useState({ count: 0, bytes: 0 });
@@ -103,6 +111,33 @@ export default function SettingsScreen({ navigation }: Props) {
 
   return (
     <Screen scroll>
+      <SectionTitle>Apparence</SectionTitle>
+      <Card>
+        <Text style={styles.hint}>
+          Choisissez la teinte de l'application. « Automatique » suit le réglage du téléphone :
+          clair le jour, sombre le soir.
+        </Text>
+        <View style={styles.themeRow}>
+          {THEME_CHOICES.map((choice) => (
+            <Pressable
+              key={choice.id}
+              accessibilityRole="button"
+              accessibilityState={{ selected: settings.themeMode === choice.id }}
+              onPress={() => void set('themeMode', choice.id)}
+              style={[styles.themeChip, settings.themeMode === choice.id && styles.themeChipOn]}>
+              <Text style={styles.themeIcon}>{choice.icon}</Text>
+              <Text
+                style={[
+                  styles.themeLabel,
+                  settings.themeMode === choice.id && styles.themeLabelOn,
+                ]}>
+                {choice.label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      </Card>
+
       <SectionTitle>Scan</SectionTitle>
       <Card>
         <Toggle
@@ -233,6 +268,8 @@ function Toggle({
   value: boolean;
   onChange: (v: boolean) => void;
 }) {
+  const styles = useStyles();
+  const { colors } = useTheme();
   return (
     <View style={styles.toggle}>
       <View style={styles.toggleText}>
@@ -250,12 +287,30 @@ function Toggle({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(({ colors, typography, elevation }) => ({
   toggle: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.sm },
   toggleText: { flex: 1, gap: 2 },
   toggleLabel: { ...typography.h2 },
   toggleHint: { ...typography.caption, lineHeight: 18 },
   hint: { ...typography.caption, lineHeight: 19 },
+
+  themeRow: { flexDirection: 'row', gap: spacing.sm },
+  themeChip: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 2,
+    paddingVertical: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceAlt,
+    minHeight: TOUCH_TARGET + 8,
+    justifyContent: 'center',
+  },
+  themeChipOn: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
+  themeIcon: { fontSize: 20 },
+  themeLabel: { ...typography.caption, fontWeight: '600' },
+  themeLabelOn: { color: colors.primary },
   footer: { alignItems: 'center', marginTop: spacing.xl },
   version: { fontSize: 11, color: colors.textFaint },
-});
+}));

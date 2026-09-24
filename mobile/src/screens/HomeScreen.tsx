@@ -11,11 +11,12 @@ import { Screen } from '../components';
 import type { RootStackParamList } from '../navigation/types';
 import { useAuthStore } from '../store/authStore';
 import { useCardsStore } from '../store/cardsStore';
-import { colors, radius, spacing, TOUCH_TARGET, typography } from '../theme';
+import { TOUCH_TARGET, makeStyles, radius, spacing, useTheme } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
 export default function HomeScreen({ navigation }: Props) {
+  const styles = useStyles();
   const { stats, refresh } = useCardsStore();
   const { user, cloudConfigured } = useAuthStore();
 
@@ -53,6 +54,12 @@ export default function HomeScreen({ navigation }: Props) {
       </View>
 
       <View style={styles.menu}>
+        <MenuItem
+          icon="🪪"
+          title="Ma carte de visite"
+          subtitle="Créez la vôtre, avec QR code, et partagez-la"
+          onPress={() => navigation.navigate('MyCard')}
+        />
         <MenuItem
           icon="🗂"
           title="Mes cartes"
@@ -93,6 +100,7 @@ export default function HomeScreen({ navigation }: Props) {
 }
 
 function Stat({ value, label, highlight }: { value: number; label: string; highlight?: boolean }) {
+  const styles = useStyles();
   return (
     <View style={styles.stat}>
       <Text style={[styles.statValue, highlight && styles.statValueHighlight]}>{value}</Text>
@@ -112,6 +120,7 @@ function MenuItem({
   subtitle: string;
   onPress: () => void;
 }) {
+  const styles = useStyles();
   return (
     <Pressable
       accessibilityRole="button"
@@ -130,9 +139,9 @@ function MenuItem({
   );
 }
 
-const styles = StyleSheet.create({
-  header: { gap: spacing.xs, marginBottom: spacing.sm },
-  brand: { ...typography.title },
+const useStyles = makeStyles(({ colors, typography, elevation }) => ({
+  header: { gap: spacing.xs, marginBottom: spacing.xs, marginTop: spacing.sm },
+  brand: { ...typography.display },
   brandAccent: { color: colors.primary },
   tagline: { ...typography.caption, lineHeight: 20 },
 
@@ -142,10 +151,16 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xl,
     alignItems: 'center',
     gap: spacing.xs,
+    // L'action principale se détache franchement du reste de l'écran.
+    shadowColor: colors.primary,
+    shadowOpacity: 0.35,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 6,
   },
-  scanIcon: { fontSize: 40 },
-  scanLabel: { fontSize: 20, fontWeight: '700', color: colors.white },
-  scanHint: { fontSize: 13, color: 'rgba(255,255,255,0.85)' },
+  scanIcon: { fontSize: 42 },
+  scanLabel: { fontSize: 21, fontWeight: '800', color: colors.onPrimary, letterSpacing: -0.2 },
+  scanHint: { fontSize: 13, color: 'rgba(255,255,255,0.88)' },
   pressed: { opacity: 0.75 },
 
   statsRow: { flexDirection: 'row', gap: spacing.md },
@@ -158,8 +173,9 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     alignItems: 'center',
     gap: 2,
+    ...elevation,
   },
-  statValue: { fontSize: 22, fontWeight: '700', color: colors.text },
+  statValue: { fontSize: 23, fontWeight: '800', color: colors.text },
   statValueHighlight: { color: colors.success },
   statLabel: { fontSize: 11, color: colors.textMuted, textAlign: 'center' },
 
@@ -174,10 +190,11 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     padding: spacing.md,
     minHeight: TOUCH_TARGET + 8,
+    ...elevation,
   },
   menuIcon: { fontSize: 22, width: 30, textAlign: 'center' },
   menuText: { flex: 1, gap: 2 },
   menuTitle: { ...typography.h2 },
   menuSubtitle: { ...typography.caption },
   menuChevron: { fontSize: 26, color: colors.textFaint },
-});
+}));

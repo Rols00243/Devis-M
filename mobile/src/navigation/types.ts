@@ -22,6 +22,7 @@ export type RootStackParamList = {
   Cards: { filter?: 'all' | 'withContact' | 'withoutContact' } | undefined;
   CardDetail: { cardId: string };
   History: undefined;
+  MyCard: undefined;
   Settings: undefined;
   Account: undefined;
 };

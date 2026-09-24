@@ -22,7 +22,7 @@ import { prepareForArchive } from '../ocr/imagePipeline';
 import { persistImage } from '../storage/images';
 import { useCardsStore } from '../store/cardsStore';
 import { useSettingsStore } from '../store/settingsStore';
-import { colors, radius, spacing, typography } from '../theme';
+import { makeStyles, radius, spacing, useTheme } from '../theme';
 import {
   EMPTY_FIELDS,
   FIELD_LABELS,
@@ -63,6 +63,7 @@ const EXTRA_KEYBOARD: Partial<Record<ExtraItem['kind'], 'default' | 'phone-pad' 
 };
 
 export default function ReviewScreen({ navigation, route }: Props) {
+  const styles = useStyles();
   const { payload, cardId } = route.params;
   const { settings } = useSettingsStore();
   const { upsert, patch } = useCardsStore();
@@ -512,7 +513,7 @@ function engineLabel(engine: BusinessCard['ocrEngine']): string {
   return 'Saisie manuelle';
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(({ colors, typography, elevation }) => ({
   previews: { gap: spacing.sm },
   preview: {
     width: '100%',
@@ -545,4 +546,4 @@ const styles = StyleSheet.create({
   },
   rawText: { ...typography.caption, lineHeight: 19, color: colors.textMuted },
   actions: { gap: spacing.sm, marginTop: spacing.lg },
-});
+}));

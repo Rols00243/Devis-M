@@ -12,7 +12,7 @@ import { AppButton, Badge, EmptyState, Screen } from '../components';
 import { listCards } from '../database/cardRepository';
 import type { RootStackParamList } from '../navigation/types';
 import { shareAllVcf, shareCsv } from '../services/export';
-import { colors, radius, spacing, TOUCH_TARGET, typography } from '../theme';
+import { TOUCH_TARGET, makeStyles, radius, spacing, useTheme } from '../theme';
 import type { BusinessCard } from '../types';
 import { displayName, formatRelativeDay, initials } from '../utils';
 
@@ -27,6 +27,8 @@ const FILTER_LABELS: Record<Filter, string> = {
 };
 
 export default function CardsScreen({ navigation, route }: Props) {
+  const styles = useStyles();
+  const { colors } = useTheme();
   const [filter, setFilter] = useState<Filter>(route.params?.filter ?? 'all');
   const [query, setQuery] = useState('');
   const [cards, setCards] = useState<BusinessCard[]>([]);
@@ -145,6 +147,7 @@ export default function CardsScreen({ navigation, route }: Props) {
 }
 
 function CardRow({ card, onPress }: { card: BusinessCard; onPress: () => void }) {
+  const styles = useStyles();
   return (
     <Pressable
       accessibilityRole="button"
@@ -170,7 +173,7 @@ function CardRow({ card, onPress }: { card: BusinessCard; onPress: () => void })
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(({ colors, typography, elevation }) => ({
   header: { padding: spacing.lg, gap: spacing.md },
   search: {
     backgroundColor: colors.surface,
@@ -234,4 +237,4 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
   },
   exportButton: { flex: 1 },
-});
+}));
