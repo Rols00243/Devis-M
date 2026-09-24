@@ -24,11 +24,19 @@ Version actuelle : v0.5.
 ## Architecture des fichiers
 
 ```
-src/
+src/          Application web MétréPro (métré et chiffrage)
   index.html   Structure (barre d'outils, étapes, panneaux, modales) + inclut styles.css et app.js
   styles.css   Tout le style (thème sombre, grille de l'app, tableau, modales)
   app.js       Toute la logique (~1200 lignes, vanilla JS, aucune dépendance sauf pdf.js via CDN)
+
+mobile/       Application mobile Scan Card (scan de cartes de visite) — voir mobile/README.md
 ```
+
+Les deux applications sont indépendantes : elles partagent l'univers métier
+(bâtiment, carnet d'adresses professionnel) et la charte graphique, mais aucun
+code. `mobile/` a sa propre pile technique (React Native + Expo + TypeScript),
+ses propres dépendances et ses propres tests ; voir `mobile/AGENTS.md` pour les
+conventions qui s'y appliquent.
 
 `app.js` charge **pdf.js** depuis cdnjs (lecture des PDF). Aucune autre dépendance externe.
 
