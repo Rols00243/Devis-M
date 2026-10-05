@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\RobotStructuralMCP.Core\RobotStructuralMCP.Core.csproj" />
+    <ProjectReference Include="..\RobotStructuralMCP.Safety\RobotStructuralMCP.Safety.csproj" />
+    <PackageReference Include="ModelContextProtocol" Version="2.2.0" />
+  </ItemGroup>
+</Project>

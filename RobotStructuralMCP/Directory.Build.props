@@ -1,0 +1,15 @@
+<Project>
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <!-- RobotOM est un serveur COM 64 bits (Robot 2020+). On cible x64 pour les exécutables. -->
+    <Platforms>x64;AnyCPU</Platforms>
+    <Version>0.1.0</Version>
+    <Company>MétréPro</Company>
+    <!-- CA1416 : les appels COM sont gardés par OperatingSystem.IsWindows() ; avertissement non bloquant. -->
+    <NoWarn>$(NoWarn);CA1416;CS1591</NoWarn>
+  </PropertyGroup>
+</Project>

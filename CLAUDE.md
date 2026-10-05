@@ -53,6 +53,13 @@ src/
   ouvrage × quantité mesurée → liste de matériaux + coûts. Vue basculable dans le dock.
 - **Export** : CSV et impression PDF (via `window.print`).
 
+### Sous-projet `RobotStructuralMCP/`
+
+Serveur MCP C#/.NET 8 (indépendant de l'app web) qui pilote Autodesk Robot Structural Analysis via RobotOM (COM,
+liaison tardive, énumérations lues dans la typelib installée). `dotnet test` dans `RobotStructuralMCP/` (mode
+Simulation, sans Robot). Ne jamais coder en dur de membre ou de valeur RobotOM non listé dans `RobotApiManifest` ;
+documenter toute limitation dans `RobotStructuralMCP/docs/ROBOTOM_API.md`.
+
 ## Conventions importantes
 
 - Les mesures sont stockées en **coordonnées image** (pixels du plan). L'échelle
