@@ -1,0 +1,7 @@
+bin/
+obj/
+logs/
+checkpoints/
+*.user
+.vs/
+TestResults/

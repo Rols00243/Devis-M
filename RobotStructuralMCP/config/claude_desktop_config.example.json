@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "robot-structural": {
+      "command": "C:\\Outils\\RobotStructuralMCP\\RobotStructuralMCP.Server.exe",
+      "args": ["--stdio"],
+      "env": {
+        "Robot__Mode": "Com",
+        "Safety__MaxLevel": "Destructive"
+      }
+    }
+  }
+}

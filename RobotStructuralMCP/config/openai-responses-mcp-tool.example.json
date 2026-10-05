@@ -1,0 +1,8 @@
+{
+  "_comment": "Exemple d'outil MCP distant pour l'API Responses d'OpenAI. server_url doit être une URL HTTPS publique (tunnel) ; la clé est celle de Server:ApiKey.",
+  "type": "mcp",
+  "server_label": "robot_structural",
+  "server_url": "https://<votre-tunnel>.example/mcp",
+  "headers": { "Authorization": "Bearer <Server:ApiKey>" },
+  "require_approval": "always"
+}

@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Aucune référence compile-time à Interop.RobotOM.dll : l'API RobotOM est appelée en liaison tardive
+    (IDispatch / dynamic) et les valeurs d'énumérations sont lues dans la bibliothèque de types COM
+    de l'instance Robot installée. Voir docs/ROBOTOM_API.md.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\RobotStructuralMCP.Core\RobotStructuralMCP.Core.csproj" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.10" />
+    <PackageReference Include="Microsoft.Extensions.Options" Version="10.0.10" />
+  </ItemGroup>
+</Project>

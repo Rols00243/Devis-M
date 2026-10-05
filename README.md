@@ -39,6 +39,8 @@ Ou ouvrez simplement `src/index.html` dans un navigateur (Chrome, Firefox, Edge�
 - `src/styles.css` — style
 - `src/app.js` — logique (vanilla JS, seule dépendance : pdf.js via CDN)
 - `CLAUDE.md` — contexte et feuille de route pour développer avec Claude Code
+- `RobotStructuralMCP/` — sous-projet indépendant (C#/.NET 8) : serveur MCP pour piloter Autodesk Robot
+  Structural Analysis depuis ChatGPT. Voir `RobotStructuralMCP/README.md`.
 
 ## Feuille de route
 

@@ -1,0 +1,16 @@
+{
+  "profiles": {
+    "http": {
+      "commandName": "Project",
+      "launchBrowser": false,
+      "applicationUrl": "http://127.0.0.1:3001",
+      "environmentVariables": { "ASPNETCORE_ENVIRONMENT": "Development" }
+    },
+    "simulation": {
+      "commandName": "Project",
+      "launchBrowser": false,
+      "applicationUrl": "http://127.0.0.1:3001",
+      "environmentVariables": { "ASPNETCORE_ENVIRONMENT": "Development", "Robot__Mode": "Simulation" }
+    }
+  }
+}
