@@ -5,3 +5,8 @@ Skills et agents (`.claude/agents/`) importés depuis https://github.com/Yeachan
 fonctionnent sans le runtime du plugin (ai-slop-cleaner, architecture-survey, deepinit, diagram, execute,
 external-context, harbor, intent, loft, map, minimal-code-discipline, minimal-prose-discipline, pr,
 ralplan, research, review, tdd, trace, verify, visual-verdict) et les 19 agents.
+
+Skills `replica-*` (11) importées depuis https://github.com/Jakeschincariol/replica-skill
+(commit 77c9436, v1.0.0, licence MIT — voir LICENSE-replica-skill) : replica-architect, replica-backend,
+replica-brand, replica-build, replica-deploy, replica-design, replica-diff, replica-entrepreneur,
+replica-launch, replica-recon, replica-test. Les tests unitaires du dépôt (`tests/`) ne sont pas importés.
