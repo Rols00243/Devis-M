@@ -1,0 +1,7 @@
+feature,area,priority,original,clone,notes
+Enregistrer et rouvrir un projet de métré,projet,must,no,no,fix F1 - les concurrents l'ont tous ; feuille de route n°1
+Métré relié au devis et au quantitatif en temps réel,devis,must,no,yes,fix F2 - déjà fait dans MétréPro ; à protéger par des tests
+Prise en main guidée (plan d'exemple + étapes + aide contextuelle),onboarding,should,no,partial,fix F3 - le plan d'exemple existe déjà
+Bibliothèque d'ouvrages fournie et modifiable (composition matériaux),bibliothèque,should,no,partial,fix F4 - feuille de route n°2
+Fonctionne dans le navigateur sur n'importe quel poste,plateforme,should,no,yes,fix F5 - déjà vrai ; ne vaut que si la persistance existe
+Toutes les fonctions incluses sans modules payants,prix,should,no,no,fix F6 - à traiter dans /replica-launch
