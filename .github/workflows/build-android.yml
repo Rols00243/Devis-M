@@ -1,0 +1,86 @@
+# Fabrique l'application Android (fichier .apk) sur les serveurs de GitHub.
+#
+# Pourquoi ici plutôt que sur le poste de l'utilisateur : la compilation exige le
+# SDK Android, Java et Gradle. Les machines de GitHub les ont déjà. L'APK est
+# ensuite joint au résultat de l'exécution, prêt à être téléchargé depuis le
+# navigateur — aucune ligne de commande n'est nécessaire.
+
+name: Application Android (APK)
+
+on:
+  push:
+    branches:
+      - main
+      - claude/mobile-business-card-scanner-0njc5k
+    paths:
+      - 'mobile/**'
+      - '.github/workflows/build-android.yml'
+  # Permet aussi de relancer la fabrication d'un clic depuis l'onglet Actions.
+  workflow_dispatch:
+
+jobs:
+  apk:
+    name: Construire l'APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    defaults:
+      run:
+        working-directory: mobile
+
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v4
+
+      - name: Installer Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Installer Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Compléter le SDK Android
+        working-directory: .
+        run: |
+          set -euo pipefail
+          SDKMGR=$(ls "$ANDROID_HOME"/cmdline-tools/*/bin/sdkmanager | head -1)
+          echo "sdkmanager : $SDKMGR"
+          yes | "$SDKMGR" --licenses > /dev/null 2>&1 || true
+          "$SDKMGR" "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Installer les dépendances
+        run: npm ci
+
+      - name: Vérifier le code (types + tests)
+        run: npm run check
+
+      - name: Générer le projet Android
+        run: npx expo prebuild --platform android --no-install
+        env:
+          CI: '1'
+          EXPO_NO_TELEMETRY: '1'
+
+      - name: Compiler l'APK
+        working-directory: mobile/android
+        run: |
+          chmod +x ./gradlew
+          # Un APK universel embarque le code natif des quatre architectures.
+          # Tout téléphone Android récent est en arm64-v8a : ne compiler que
+          # celle-ci divise le poids du fichier par deux environ.
+          ./gradlew assembleRelease --no-daemon --stacktrace \
+            -PreactNativeArchitectures=arm64-v8a
+
+      - name: Joindre l'APK au résultat
+        uses: actions/upload-artifact@v4
+        with:
+          name: ScanCard-android
+          path: mobile/android/app/build/outputs/apk/release/*.apk
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 90
